@@ -26,7 +26,6 @@
     "node-gyp-build": "node-gyp build",
     "node-gyp-rebuild": "node-gyp rebuild",
     "build": "tsc -b ./src/tsconfig.json",
-    "install": "prebuild-install || npm run node-gyp-rebuild",
     "prepare": "npm run build",
     "release": "npm version patch && npm publish --access public && git push --tags",
     "prepublishOnly": "npm run build"

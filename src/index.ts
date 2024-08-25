@@ -1,3 +1,6 @@
+import path from 'path';
+import { fork } from 'child_process';
+
 let addon: any;
 try {
     addon = require('../build/Release/addon');
@@ -5,8 +8,45 @@ try {
 catch (e) {
 }
 
-export function isAvailable() {
+export function isInstalled() {
     return !!addon;
+}
+
+let installing: Promise<void> | undefined;
+export async function install() {
+    if (addon)
+        return;
+
+    if (installing)
+        return installing;
+
+    installing = new Promise<void>((resolve, reject) => {
+        const cp = fork(require.resolve('prebuild-install/bin.js'), {
+            cwd: path.dirname(__dirname),
+        });
+
+        cp.on('error', reject);
+
+        cp.on('exit', (code) => {
+            if (code === 0) {
+                try {
+                    addon = require('../build/Release/addon');
+                    resolve();
+                }
+                catch (e) {
+                    reject(e);
+                }
+            }
+            else {
+                reject(new Error('Failed to install'));
+            }
+        });
+    })
+    .finally(() => {
+        installing = undefined;
+    });
+
+    return installing;
 }
 
 export interface AVFrame {
