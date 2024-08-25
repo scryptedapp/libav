@@ -1,6 +1,6 @@
 {
   "name": "@scrypted/libav",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "dependencies": {
     "@types/node": "^22.5.0",
     "node-addon-api": "^8.1.0",
