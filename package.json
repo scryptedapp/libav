@@ -6,6 +6,10 @@
     "node-addon-api": "^8.1.0",
     "prebuild-install": "npm:@scrypted/prebuild-install@^7.1.8"
   },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/scryptedapp/libav.git"
+  },
   "scripts": {
     "prebuildify-host": "prebuild --strip --include-regex \"\\.node$|spawn-helper$|\\.exe$|\\.dll$|\\.pdb$\"",
     "prebuildify-node": "prebuild --strip -t 18.0.0 -t 20.0.0 -t 22.0.0 --include-regex \"\\.node$|spawn-helper$|\\.exe$|\\.dll$|\\.pdb$\"",
