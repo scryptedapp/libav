@@ -10,6 +10,7 @@
     "url": "git://github.com/scryptedapp/libav.git"
   },
   "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
   "scripts": {
     "prebuildify-host": "prebuild --strip --include-regex \"\\.node$|spawn-helper$|\\.exe$|\\.dll$|\\.pdb$\"",
     "prebuildify-node": "prebuild --strip -t 20.0.0 -t 22.0.0 --include-regex \"\\.node$|spawn-helper$|\\.exe$|\\.dll$|\\.pdb$\"",
