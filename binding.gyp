@@ -32,7 +32,6 @@
           "/usr/include"
         ],
         "libraries": [
-          "-L/opt/homebrew/lib/",
           "-lavcodec",
           "-lavformat",
           "-lavfilter",
