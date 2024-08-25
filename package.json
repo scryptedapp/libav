@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "@types/node": "^22.5.0",
+    "node-addon-api": "^8.1.0"
+  },
+  "scripts": {
+    "configure": "cd FFmpeg && MACOSX_DEPLOYMENT_TARGET=11.0 ./configure --enable-videotoolbox && MACOSX_DEPLOYMENT_TARGET=11.0 make -j32",
+    "build": "node-gyp configure && node-gyp build"
+  },
+  "devDependencies": {
+    "node-gyp": "^10.2.0"
+  }
+}
