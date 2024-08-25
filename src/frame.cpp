@@ -127,9 +127,9 @@ Napi::Value AVFrameObject::ToJPEG(const Napi::CallbackInfo &info)
 
     // Set the JPEG quality
     int quality = info[0].As<Napi::Number>().Int32Value(); // 1-31, lower is better quality
-    av_opt_set_int(c, "qscale", quality, 0); // Set the quality scale (1-31, lower is better quality)
-    av_opt_set_int(c, "qmin", quality, 0);   // Set the minimum quality
-    av_opt_set_int(c, "qmax", quality, 0);   // Set the maximum quality
+    av_opt_set_int(c, "qscale", quality, 0);               // Set the quality scale (1-31, lower is better quality)
+    av_opt_set_int(c, "qmin", quality, 0);                 // Set the minimum quality
+    av_opt_set_int(c, "qmax", quality, 0);                 // Set the maximum quality
 
     if (avcodec_open2(c, codec, NULL) < 0)
     {
@@ -159,7 +159,7 @@ Napi::Value AVFrameObject::ToJPEG(const Napi::CallbackInfo &info)
         return env.Null();
     }
 
-    Napi::Buffer<uint8_t> buffer = Napi::Buffer<uint8_t>::New(env, pkt.data, pkt.size);
+    Napi::Buffer<uint8_t> buffer = Napi::Buffer<uint8_t>::NewOrCopy(env, pkt.data, pkt.size);
     av_packet_unref(&pkt);
     avcodec_free_context(&c);
 
@@ -188,14 +188,21 @@ Napi::Value AVFrameObject::ToBuffer(const Napi::CallbackInfo &info)
         return env.Null();
     }
 
-    // Copy the frame data to the byte array
-    int plane_size = width * 3; // Width * 3 bytes per pixel
-    for (int y = 0; y < height; y++)
+    int frame_size = frame_->linesize[0] * height;
+    if (frame_size != buffer_size)
     {
-        memcpy(byte_array + y * plane_size, frame_->data[0] + y * frame_->linesize[0], plane_size);
+        // Copy the frame data to the byte array
+        int plane_size = width * 3; // Width * 3 bytes per pixel
+        for (int y = 0; y < height; y++)
+        {
+            memcpy(byte_array + y * plane_size, frame_->data[0] + y * frame_->linesize[0], plane_size);
+        }
+    }
+    else {
+        memcpy(byte_array, frame_->data[0], buffer_size);
     }
 
-    Napi::Buffer<uint8_t> buffer = Napi::Buffer<uint8_t>::New(env, byte_array, buffer_size);
+    Napi::Buffer<uint8_t> buffer = Napi::Buffer<uint8_t>::NewOrCopy(env, byte_array, buffer_size);
 
     return buffer;
 }
