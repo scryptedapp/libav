@@ -159,7 +159,7 @@ Napi::Value AVFrameObject::ToJPEG(const Napi::CallbackInfo &info)
         return env.Null();
     }
 
-    Napi::Buffer<uint8_t> buffer = Napi::Buffer<uint8_t>::NewOrCopy(env, pkt.data, pkt.size);
+    Napi::Buffer<uint8_t> buffer = Napi::Buffer<uint8_t>::Copy(env, pkt.data, pkt.size);
     av_packet_unref(&pkt);
     avcodec_free_context(&c);
 
@@ -180,8 +180,9 @@ Napi::Value AVFrameObject::ToBuffer(const Napi::CallbackInfo &info)
     int height = frame_->height;
     int buffer_size = av_image_get_buffer_size((enum AVPixelFormat)frame_->format, width, height, 1);
 
-    // Allocate memory for the byte array
-    uint8_t *byte_array = (uint8_t *)malloc(buffer_size);
+    Napi::Buffer<uint8_t> buffer = Napi::Buffer<uint8_t>::New(env, buffer_size);
+
+    uint8_t *byte_array = buffer.Data();
     if (!byte_array)
     {
         Napi::Error::New(env, "Failed to allocate memory for byte array").ThrowAsJavaScriptException();
@@ -191,18 +192,15 @@ Napi::Value AVFrameObject::ToBuffer(const Napi::CallbackInfo &info)
     int frame_size = frame_->linesize[0] * height;
     if (frame_size != buffer_size)
     {
-        // Copy the frame data to the byte array
-        int plane_size = width * 3; // Width * 3 bytes per pixel
+        int stride = buffer_size / height;
         for (int y = 0; y < height; y++)
         {
-            memcpy(byte_array + y * plane_size, frame_->data[0] + y * frame_->linesize[0], plane_size);
+            memcpy(byte_array + y * stride, frame_->data[0] + y * frame_->linesize[0], stride);
         }
     }
     else {
         memcpy(byte_array, frame_->data[0], buffer_size);
     }
-
-    Napi::Buffer<uint8_t> buffer = Napi::Buffer<uint8_t>::NewOrCopy(env, byte_array, buffer_size);
 
     return buffer;
 }
