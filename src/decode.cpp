@@ -443,7 +443,11 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
     }
 
     // Find the first video stream
+    #ifdef __APPLE__
     const struct AVCodec *codec = nullptr;
+    #else
+    struct AVCodec *codec = nullptr;
+    #endif
 
     /* find the video stream information */
     ret = av_find_best_stream(fmt_ctx_, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, 0);
