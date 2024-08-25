@@ -177,7 +177,7 @@ Napi::Value AVFrameObject::ToBuffer(const Napi::CallbackInfo &info)
     uint8_t *byte_array = (uint8_t *)malloc(buffer_size);
     if (!byte_array)
     {
-        fprintf(stderr, "Failed to allocate memory for byte array\n");
+        Napi::Error::New(env, "Failed to allocate memory for byte array").ThrowAsJavaScriptException();
         return env.Null();
     }
 
