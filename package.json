@@ -10,6 +10,7 @@
     "type": "git",
     "url": "git://github.com/scryptedapp/libav.git"
   },
+  "main": "./lib/index.js",
   "scripts": {
     "prebuildify-host": "prebuild --strip --include-regex \"\\.node$|spawn-helper$|\\.exe$|\\.dll$|\\.pdb$\"",
     "prebuildify-node": "prebuild --strip -t 18.0.0 -t 20.0.0 -t 22.0.0 --include-regex \"\\.node$|spawn-helper$|\\.exe$|\\.dll$|\\.pdb$\"",
@@ -24,10 +25,15 @@
     "prebuildify-windows-latest": "npm run prebuildify-x64",
     "node-gyp-build": "node-gyp build",
     "node-gyp-rebuild": "node-gyp rebuild",
-    "install": "prebuild-install || npm run node-gyp-rebuild"
+    "build": "tsc -b ./src/tsconfig.json",
+    "install": "prebuild-install || npm run node-gyp-rebuild",
+    "prepare": "npm run build",
+    "release": "npm version patch && npm publish --access public && git push --tags",
+    "prepublishOnly": "npm run build"
   },
   "devDependencies": {
     "node-gyp": "^10.2.0",
-    "prebuild": "^13.0.1"
+    "prebuild": "^13.0.1",
+    "typescript": "^5.5.4"
   }
 }
