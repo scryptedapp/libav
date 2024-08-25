@@ -1,6 +1,6 @@
 {
   "name": "@scrypted/libav",
-  "version": "1.0.6",
+  "version": "1.0.5",
   "dependencies": {
     "node-addon-api": "^8.1.0",
     "prebuild-install": "npm:@scrypted/prebuild-install@^7.1.8"
@@ -26,6 +26,9 @@
     "node-gyp-build": "node-gyp build",
     "node-gyp-rebuild": "node-gyp rebuild",
     "build": "tsc -b ./src/tsconfig.json",
+    "install-prebuild": "prebuild-install || npm run node-gyp-rebuild",
+    "install-empty-note": "echo 'The empty string below prevents addon from being built.'",
+    "install": " ",
     "prepare": "npm run build",
     "release": "npm version patch && npm publish --access public && git push --tags",
     "prepublishOnly": "npm run build"
