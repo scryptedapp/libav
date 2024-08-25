@@ -92,6 +92,13 @@ AVFrameObject::~AVFrameObject()
 Napi::Value AVFrameObject::ToJPEG(const Napi::CallbackInfo &info)
 {
     Napi::Env env = info.Env();
+
+    if (info.Length() < 1 || !info[0].IsNumber())
+    {
+        Napi::TypeError::New(env, "String expected").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
     if (!frame_)
     {
         Napi::Error::New(env, "Frame object is null").ThrowAsJavaScriptException();
@@ -112,14 +119,14 @@ Napi::Value AVFrameObject::ToJPEG(const Napi::CallbackInfo &info)
         return env.Null();
     }
 
-    c->bit_rate = 400000; // This is generally less relevant for single images
+    c->bit_rate = 2000000; // This is generally less relevant for single images
     c->width = frame_->width;
     c->height = frame_->height;
     c->pix_fmt = (enum AVPixelFormat)frame_->format;
     c->time_base = (AVRational){1, 25};
 
     // Set the JPEG quality
-    int quality = 2; // 1-31, lower is better quality
+    int quality = info[0].As<Napi::Number>().Int32Value(); // 1-31, lower is better quality
     av_opt_set_int(c, "qscale", quality, 0); // Set the quality scale (1-31, lower is better quality)
     av_opt_set_int(c, "qmin", quality, 0);   // Set the minimum quality
     av_opt_set_int(c, "qmax", quality, 0);   // Set the maximum quality

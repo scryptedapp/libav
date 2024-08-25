@@ -15,7 +15,11 @@ export interface AVFrame {
     height: number;
     format: string;
     toBuffer(): Buffer;
-    toJpeg(): Buffer;
+    /**
+     *
+     * @param quality 1-31. Lower is better quality.
+     */
+    toJpeg(quality: number): Buffer;
 }
 
 export interface AVFilter {
