@@ -119,7 +119,7 @@ Napi::Value AVFrameObject::ToJPEG(const Napi::CallbackInfo &info)
     c->time_base = (AVRational){1, 25};
 
     // Set the JPEG quality
-    int quality = 2; // 1-31, lower is better quality
+    int quality = 2;                         // 1-31, lower is better quality
     av_opt_set_int(c, "qscale", quality, 0); // Set the quality scale (1-31, lower is better quality)
     av_opt_set_int(c, "qmin", quality, 0);   // Set the minimum quality
     av_opt_set_int(c, "qmax", quality, 0);   // Set the maximum quality
@@ -139,9 +139,12 @@ Napi::Value AVFrameObject::ToJPEG(const Napi::CallbackInfo &info)
         return env.Null();
     }
 
-    AVPacket packet = { 0 };
-    pkt.data = NULL; // Packet data will be allocated by the encoder
+    AVPacket pkt;
+    pkt.data = NULL;
     pkt.size = 0;
+    pkt.pts = AV_NOPTS_VALUE;
+    pkt.dts = AV_NOPTS_VALUE;
+    pkt.pos = -1;
 
     ret = avcodec_receive_packet(c, &pkt);
     if (ret < 0)
