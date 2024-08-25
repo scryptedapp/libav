@@ -4,7 +4,7 @@
       "target_name": "addon",
       "sources": ["src/decode.cpp"],
       "xcode_settings": {
-        "MACOSX_DEPLOYMENT_TARGET": "10.8",
+        "MACOSX_DEPLOYMENT_TARGET": "12.0",
         "OTHER_LDFLAGS": [
             "-framework", "AppKit",
             "-framework", "CoreMedia",

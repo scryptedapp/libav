@@ -1,0 +1,49 @@
+name: Build
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+    inputs:
+      uploadAssets:
+        description: 'Upload Assets'
+        type: boolean
+        required: false
+        default: true
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        # need older ubuntu for backwards compat with glibc.
+        os: [ubuntu-20.04, windows-latest, macos-latest, self-hosted-arm64]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        # node-gyp doesn't work on python 3.12 due to missing distutils on mac and windows.
+        python-version: '3.10'
+      # this action does not have 3.10 available for linux arm64 (or any version at time of checking).
+      # https://raw.githubusercontent.com/actions/python-versions/main/versions-manifest.json
+      if: ${{ matrix.os != 'self-hosted-arm64' }}
+
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v1
+      with:
+        node-version: 20.x
+
+    - run: npm install
+
+    - run: npm run prebuildify-${{ matrix.os }}
+
+    - run: npm run prebuildify-upload -- ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event.inputs.uploadAssets != 'false' }}

@@ -1,13 +1,29 @@
 {
+  "name": "@scrypted/libav",
+  "version": "1.0.0",
   "dependencies": {
     "@types/node": "^22.5.0",
-    "node-addon-api": "^8.1.0"
+    "node-addon-api": "^8.1.0",
+    "prebuild-install": "npm:@scrypted/prebuild-install@^7.1.8"
   },
   "scripts": {
-    "configure": "cd FFmpeg && MACOSX_DEPLOYMENT_TARGET=11.0 ./configure --enable-videotoolbox && MACOSX_DEPLOYMENT_TARGET=11.0 make -j32",
-    "build": "node-gyp configure && node-gyp build"
+    "prebuildify-host": "prebuild --strip --include-regex \"\\.node$|spawn-helper$|\\.exe$|\\.dll$|\\.pdb$\"",
+    "prebuildify-node": "prebuild --strip -t 18.0.0 -t 20.0.0 -t 22.0.0 --include-regex \"\\.node$|spawn-helper$|\\.exe$|\\.dll$|\\.pdb$\"",
+    "prebuildify-electron": "prebuild --strip -r electron -t 30.0.0 -t 31.0.0 --include-regex \"\\.node$|spawn-helper$|\\.exe$|\\.dll$|\\.pdb$\"",
+    "prebuildify-arm64": "npm run prebuildify-electron -- --arch arm64 && npm run prebuildify-node -- --arch arm64",
+    "prebuildify-x64": "npm run prebuildify-electron -- --arch x64 && npm run prebuildify-node -- --arch x64",
+    "prebuildify": "npm run prebuildify-arm64 && npm run prebuildify-x64",
+    "prebuildify-upload": "prebuild --upload-all",
+    "preprebuildify-macos-latest": "cd FFmpeg && MACOSX_DEPLOYMENT_TARGET=12.0 ./configure --enable-videotoolbox && MACOSX_DEPLOYMENT_TARGET=12.0 make -j32",
+    "prebuildify-macos-latest": "npm run prebuildify-arm64",
+    "prebuildify-ubuntu-20.04": "npm run prebuildify-x64",
+    "prebuildify-self-hosted-arm64": "npm run prebuildify-arm64",
+    "prebuildify-windows-latest": "npm run prebuildify-x64",
+    "node-gyp-rebuild": "node-gyp rebuild",
+    "install": "prebuild-install || npm run node-gyp-rebuild"
   },
   "devDependencies": {
-    "node-gyp": "^10.2.0"
+    "node-gyp": "^10.2.0",
+    "prebuild": "^13.0.1"
   }
 }

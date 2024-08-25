@@ -139,8 +139,7 @@ Napi::Value AVFrameObject::ToJPEG(const Napi::CallbackInfo &info)
         return env.Null();
     }
 
-    AVPacket pkt;
-    av_init_packet(&pkt);
+    AVPacket packet = { 0 };
     pkt.data = NULL; // Packet data will be allocated by the encoder
     pkt.size = 0;
 
