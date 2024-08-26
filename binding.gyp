@@ -28,7 +28,7 @@
                                 "action": [
                                     "sh",
                                     "-c",
-                                    "cd FFmpeg && MACOSX_DEPLOYMENT_TARGET=12.0 ./configure --enable-videotoolbox && MACOSX_DEPLOYMENT_TARGET=12.0 make -j32",
+                                    "src/build-ffmpeg-darwin.sh",
                                 ],
                             },
                         ],
