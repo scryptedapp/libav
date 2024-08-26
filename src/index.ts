@@ -12,6 +12,10 @@ export function isInstalled() {
     return !!addon;
 }
 
+export function loadAddon(addonPath: string) {
+    addon = require(addonPath);
+}
+
 let installing: Promise<void> | undefined;
 export async function install() {
     if (addon)
