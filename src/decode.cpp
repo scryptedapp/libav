@@ -114,32 +114,28 @@ public:
             if (packet->stream_index == videoStreamIndex)
             {
                 // printf("av packet size: %d\n", packet->size);
-                if ((ret = avcodec_send_packet(codecContext, packet)) == 0)
+                if ((ret = avcodec_send_packet(codecContext, packet)) != 0)
                 {
-                    ret = avcodec_receive_frame(codecContext, frame);
-                    if (ret == AVERROR(EAGAIN))
-                    {
-                        // fall through to read more data
-                        printAVError(ret);
-                    }
-                    else if (ret < 0 || ret == AVERROR_EOF)
-                    {
-                        printAVError(ret);
-                        av_packet_free(&packet);
-                        SetError("Could not read frame");
-                        return;
-                    }
-                    else
-                    {
-                        // printf("returning frame 1\n");
-                        av_packet_free(&packet);
-                        result = frame;
-                        return;
-                    }
+                    printAVError(ret);
+                    break;
+                }
+                ret = avcodec_receive_frame(codecContext, frame);
+
+                if (ret == 0)
+                {
+                    av_packet_free(&packet);
+                    result = frame;
+                    return;
+                }
+                else if (ret == AVERROR(EAGAIN))
+                {
+                    // fall through to read more data
+                    // printAVError(ret);
                 }
                 else
                 {
                     printAVError(ret);
+                    break;
                 }
             }
             av_packet_unref(packet); // Reset the packet for the next frame
