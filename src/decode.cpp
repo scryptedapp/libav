@@ -139,7 +139,7 @@ public:
                 }
                 else
                 {
-                    // printAVError(ret);
+                    printAVError(ret);
                 }
             }
             av_packet_unref(packet); // Reset the packet for the next frame
