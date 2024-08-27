@@ -83,6 +83,7 @@ public:
         // Decode video frames
         while (av_read_frame(fmt_ctx_, packet) >= 0)
         {
+            fprintf(stdout, "read a frame\n");
             if (packet->stream_index != videoStreamIndex)
             {
                 continue;
@@ -99,6 +100,7 @@ public:
             }
             av_packet_unref(packet); // Reset the packet for the next frame
         }
+        fprintf(stdout, "finished reading a frame\n");
 
         av_frame_free(&frame);
         av_packet_free(&packet);
