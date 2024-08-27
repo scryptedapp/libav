@@ -108,9 +108,7 @@ public:
                 return;
             }
 
-            codecContext->
-
-                ret = av_read_frame(fmt_ctx_, packet);
+            ret = av_read_frame(fmt_ctx_, packet);
             if (ret == AVERROR(EAGAIN))
             {
                 // try reading again later
