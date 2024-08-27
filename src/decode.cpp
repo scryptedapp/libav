@@ -140,7 +140,7 @@ public:
             if (ret && ret != AVERROR(EAGAIN))
             {
                 fprintf(stderr, "Error sending packet to decoder, attempting recovery.\n");
-                ret = avcodec_send_packet(codec_ctx, NULL);
+                ret = avcodec_send_packet(codecContext, NULL);
                 if (ret)
                 {
                     printAVError(ret);
