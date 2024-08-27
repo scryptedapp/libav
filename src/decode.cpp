@@ -93,6 +93,12 @@ public:
                         result = frame;
                         return;
                     }
+                    else {
+                        fprintf(stderr, "Error while receiving a frame from the decoder\n");
+                    }
+                }
+                else {
+                    fprintf(stderr, "Error while sending a packet to the decoder\n");
                 }
             }
             av_packet_unref(packet); // Reset the packet for the next frame
