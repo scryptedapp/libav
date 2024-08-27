@@ -67,8 +67,11 @@ void printAVError(int errnum)
 class ReadFrameWorker : public Napi::AsyncWorker
 {
 public:
+    bool reseting;
     ReadFrameWorker(napi_env env, napi_deferred deferred, AVFormatContext *fmt_ctx, AVCodecContext *codecContext, int videoStreamIndex)
-        : Napi::AsyncWorker(env), deferred(deferred), fmt_ctx_(fmt_ctx), codecContext(codecContext), videoStreamIndex(videoStreamIndex) {}
+        : Napi::AsyncWorker(env), deferred(deferred), fmt_ctx_(fmt_ctx), codecContext(codecContext), videoStreamIndex(videoStreamIndex) {
+            reseting = false;
+        }
 
     void Execute() override
     {
@@ -92,21 +95,25 @@ public:
         {
             // attempt to read frames first, EGAIN will be returned if data needs to be
             // sent to decoder.
-            ret = avcodec_receive_frame(codecContext, frame);
-            if (!ret)
+            if (!reseting)
             {
-                // printf("returning frame 0\n");
-                av_packet_free(&packet);
-                result = frame;
-                return;
+                ret = avcodec_receive_frame(codecContext, frame);
+                if (!ret)
+                {
+                    // printf("returning frame 0\n");
+                    av_packet_free(&packet);
+                    result = frame;
+                    return;
+                }
+                else if (ret != AVERROR(EAGAIN))
+                {
+                    printAVError(ret);
+                    av_packet_free(&packet);
+                    SetError("error during avcodec_receive_frame");
+                    return;
+                }
             }
-            else if (ret != AVERROR(EAGAIN))
-            {
-                printAVError(ret);
-                av_packet_free(&packet);
-                SetError("error during avcodec_receive_frame");
-                return;
-            }
+            reseting = false;
 
             ret = av_read_frame(fmt_ctx_, packet);
             if (ret == AVERROR(EAGAIN))
@@ -137,12 +144,19 @@ public:
             // when receiving a decoder error, attempt to flush.
             if (ret && ret != AVERROR(EAGAIN))
             {
+                av_packet_free(&packet);
+
                 fprintf(stderr, "Error sending packet to decoder, attempting recovery.\n");
                 ret = avcodec_send_packet(codecContext, NULL);
                 if (ret)
                 {
+                    SetError("Recovery failed.");
                     printAVError(ret);
+                    return;
                 }
+                reseting = true;
+                result = nullptr;
+                return;
             }
 
             // success means decode was successful
