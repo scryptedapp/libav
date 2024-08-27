@@ -93,6 +93,7 @@ public:
             {
                 if (avcodec_receive_frame(codecContext, frame) == 0)
                 {
+                    fprintf(stdout, "finished reading a frame\n");
                     av_packet_free(&packet);
                     result = frame;
                     return;
@@ -100,7 +101,6 @@ public:
             }
             av_packet_unref(packet); // Reset the packet for the next frame
         }
-        fprintf(stdout, "finished reading a frame\n");
 
         av_frame_free(&frame);
         av_packet_free(&packet);
