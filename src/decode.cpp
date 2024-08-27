@@ -81,24 +81,25 @@ public:
         }
 
         // Decode video frames
+        int ret;
         while (av_read_frame(fmt_ctx_, packet) >= 0)
         {
             if (packet->stream_index == videoStreamIndex)
             {
-                if (avcodec_send_packet(codecContext, packet) == 0)
+                if ((ret = avcodec_send_packet(codecContext, packet)) == 0)
                 {
-                    if (avcodec_receive_frame(codecContext, frame) == 0)
+                    if ((ret = avcodec_receive_frame(codecContext, frame)) == 0)
                     {
                         av_packet_free(&packet);
                         result = frame;
                         return;
                     }
                     else {
-                        fprintf(stderr, "Error while receiving a frame from the decoder\n");
+                        fprintf(stderr, "Error while receiving a frame from the decoder: %d\n", ret);
                     }
                 }
                 else {
-                    fprintf(stderr, "Error while sending a packet to the decoder\n");
+                    fprintf(stderr, "Error while sending a packet to the decoder: %d\n", ret);
                 }
             }
             av_packet_unref(packet); // Reset the packet for the next frame
