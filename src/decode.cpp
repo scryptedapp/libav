@@ -94,8 +94,8 @@ public:
                         return;
                     }
                 }
-                av_packet_unref(packet); // Reset the packet for the next frame
             }
+            av_packet_unref(packet); // Reset the packet for the next frame
         }
 
         av_frame_free(&frame);
