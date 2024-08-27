@@ -94,11 +94,13 @@ public:
                         result = frame;
                         return;
                     }
-                    else {
+                    else
+                    {
                         fprintf(stderr, "Error while receiving a frame from the decoder: %d\n", ret);
                     }
                 }
-                else {
+                else
+                {
                     fprintf(stderr, "Error while sending a packet to the decoder: %d\n", ret);
                 }
             }
@@ -554,6 +556,13 @@ Napi::Value AVFormatContextObject::GetPointer(const Napi::CallbackInfo &info)
 
 Napi::Object Init(Napi::Env env, Napi::Object exports)
 {
+    int error_code = AVERROR(EAGAIN);
+    printf("AVERROR(EAGAIN) = %d\n", error_code);
+    error_code = AVERROR(AVERROR_EOF);
+    printf("AVERROR(AVERROR_EOF) = %d\n", error_code);
+    error_code = AVERROR(EINVAL);
+    printf("AVERROR(EINVAL) = %d\n", error_code);
+
     AVFilterGraphObject::Init(env, exports);
     AVFrameObject::Init(env, exports);
     AVFormatContextObject::Init(env, exports);
