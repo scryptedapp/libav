@@ -63,11 +63,6 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
 
 AVFilterGraphObject::~AVFilterGraphObject()
 {
-    if (filterGraph)
-    {
-        avfilter_graph_free(&filterGraph);
-        filterGraph = nullptr;
-    }
 }
 
 Napi::Value AVFilterGraphObject::Destroy(const Napi::CallbackInfo &info)

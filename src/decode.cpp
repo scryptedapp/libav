@@ -141,7 +141,6 @@ public:
 private:
     static Napi::FunctionReference constructor;
     AVFormatContext *fmt_ctx_;
-    bool owns_context_; // Flag to indicate if we should free the context
     int videoStreamIndex;
     AVCodecContext *codecContext;
     AVBufferRef *hw_device_ctx;
@@ -200,7 +199,6 @@ Napi::Object AVFormatContextObject::Init(Napi::Env env, Napi::Object exports)
 
 AVFormatContextObject::AVFormatContextObject(const Napi::CallbackInfo &info)
     : Napi::ObjectWrap<AVFormatContextObject>(info),
-      owns_context_(true),
       videoStreamIndex(-1),
       codecContext(nullptr),
       hw_device_ctx(nullptr)
@@ -221,7 +219,6 @@ AVFormatContextObject::AVFormatContextObject(const Napi::CallbackInfo &info)
         }
 
         fmt_ctx_ = reinterpret_cast<AVFormatContext *>(value);
-        owns_context_ = false; // We don't own this context, so we shouldn't free it
     }
     else
     {
@@ -232,7 +229,6 @@ AVFormatContextObject::AVFormatContextObject(const Napi::CallbackInfo &info)
             Napi::Error::New(env, "Failed to allocate AVFormatContext").ThrowAsJavaScriptException();
             return;
         }
-        owns_context_ = true; // We own this context, so we should free it when done
     }
 }
 
@@ -514,18 +510,11 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
 
 AVFormatContextObject::~AVFormatContextObject()
 {
-    if (owns_context_ && fmt_ctx_)
-    {
-        av_log(NULL, AV_LOG_INFO, "Destroyng AVFormatContext\n");
-        avformat_close_input(&fmt_ctx_);
-        avformat_free_context(fmt_ctx_);
-        fmt_ctx_ = nullptr;
-    }
 }
 
 Napi::Value AVFormatContextObject::Close(const Napi::CallbackInfo &info)
 {
-    if (owns_context_ && fmt_ctx_)
+    if (fmt_ctx_)
     {
         av_log(NULL, AV_LOG_INFO, "Closing AVFormatContext\n");
         avformat_close_input(&fmt_ctx_);

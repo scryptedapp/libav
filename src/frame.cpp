@@ -82,11 +82,6 @@ AVFrameObject::AVFrameObject(const Napi::CallbackInfo &info)
 
 AVFrameObject::~AVFrameObject()
 {
-    if (frame_)
-    {
-        av_frame_free(&frame_);
-        frame_ = nullptr;
-    }
 }
 
 Napi::Value AVFrameObject::ToJPEG(const Napi::CallbackInfo &info)
