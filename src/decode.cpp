@@ -87,15 +87,27 @@ public:
             return;
         }
 
-        if (avcodec_receive_frame(codecContext, frame) == 0)
+        int ret = avcodec_receive_frame(codecContext, frame);
+        if (ret == AVERROR(EAGAIN))
         {
+            // fall through to read more data
+        }
+        else if (ret < 0 || ret == AVERROR_EOF)
+        {
+            printAVError(ret);
+            av_packet_free(&packet);
+            SetError("Could not read frame");
+            return;
+        }
+        else
+        {
+            printf("returning frame 0\n");
             av_packet_free(&packet);
             result = frame;
             return;
         }
 
         // Decode video frames
-        int ret;
         while (av_read_frame(fmt_ctx_, packet) >= 0)
         {
             if (packet->stream_index == videoStreamIndex)
@@ -103,15 +115,24 @@ public:
                 printf("av packet size: %d\n", packet->size);
                 if ((ret = avcodec_send_packet(codecContext, packet)) == 0)
                 {
-                    if ((ret = avcodec_receive_frame(codecContext, frame)) == 0)
+                    ret = avcodec_receive_frame(codecContext, frame);
+                    if (ret == AVERROR(EAGAIN))
                     {
+                        // fall through to read more data
+                    }
+                    else if (ret < 0 || ret == AVERROR_EOF)
+                    {
+                        printAVError(ret);
                         av_packet_free(&packet);
-                        result = frame;
+                        SetError("Could not read frame");
                         return;
                     }
                     else
                     {
-                        printAVError(ret);
+                        printf("returning frame 0\n");
+                        av_packet_free(&packet);
+                        result = frame;
+                        return;
                     }
                 }
                 else
