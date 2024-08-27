@@ -50,19 +50,19 @@ Napi::Value set_console_callback(const Napi::CallbackInfo &info)
     return env.Null();
 }
 
-// void printAVError(int errnum)
-// {
-//     char errbuf[256];
+void printAVError(int errnum)
+{
+    char errbuf[256];
 
-//     // Convert the error code to a string
-//     if (av_strerror(errnum, errbuf, sizeof(errbuf)) < 0)
-//     {
-//         printf("Unknown error code: %d", errnum);
-//         return;
-//     }
+    // Convert the error code to a string
+    if (av_strerror(errnum, errbuf, sizeof(errbuf)) < 0)
+    {
+        printf("Unknown error code: %d", errnum);
+        return;
+    }
 
-//     printf("Error: %s\n", errbuf);
-// }
+    printf("Error: %s\n", errbuf);
+}
 
 class ReadFrameWorker : public Napi::AsyncWorker
 {
@@ -91,10 +91,11 @@ public:
         if (ret == AVERROR(EAGAIN))
         {
             // fall through to read more data
+            printAVError(ret);
         }
         else if (ret < 0 || ret == AVERROR_EOF)
         {
-            // printAVError(ret);
+            printAVError(ret);
             av_packet_free(&packet);
             SetError("Could not read frame");
             return;
@@ -119,10 +120,11 @@ public:
                     if (ret == AVERROR(EAGAIN))
                     {
                         // fall through to read more data
+                        printAVError(ret);
                     }
                     else if (ret < 0 || ret == AVERROR_EOF)
                     {
-                        // printAVError(ret);
+                        printAVError(ret);
                         av_packet_free(&packet);
                         SetError("Could not read frame");
                         return;
