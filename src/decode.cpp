@@ -87,71 +87,83 @@ public:
             return;
         }
 
-        int ret = avcodec_receive_frame(codecContext, frame);
-        if (ret == AVERROR(EAGAIN))
+        int ret;
+        while (true)
         {
-            // fall through to read more data
-            printAVError(ret);
-        }
-        else if (ret < 0 || ret == AVERROR_EOF)
-        {
-            printAVError(ret);
-            av_packet_free(&packet);
-            SetError("Could not read frame");
-            return;
-        }
-        else
-        {
-            // printf("returning frame 0\n");
-            av_packet_free(&packet);
-            result = frame;
-            return;
-        }
-
-        // Decode video frames
-        while (av_read_frame(fmt_ctx_, packet) >= 0)
-        {
-            if (packet->stream_index == videoStreamIndex)
+            // attempt to read frames first, EGAIN will be returned if data needs to be
+            // sent to decoder.
+            ret = avcodec_receive_frame(codecContext, frame);
+            if (!ret)
             {
-                // printf("av packet size: %d\n", packet->size);
-                if ((ret = avcodec_send_packet(codecContext, packet)) != 0)
-                {
-                    printAVError(ret);
-                    break;
-                }
-                ret = avcodec_receive_frame(codecContext, frame);
-
-                if (ret == 0)
-                {
-                    av_packet_free(&packet);
-                    result = frame;
-                    return;
-                }
-                else if (ret == AVERROR(EAGAIN))
-                {
-                    // fall through to read more data
-                    // printAVError(ret);
-                }
-                else
-                {
-                    printAVError(ret);
-                    break;
-                }
+                // printf("returning frame 0\n");
+                av_packet_free(&packet);
+                result = frame;
+                return;
             }
+            else if (ret != AVERROR(EAGAIN))
+            {
+                printAVError(ret);
+                av_packet_free(&packet);
+                SetError("error during avcodec_receive_frame");
+                return;
+            }
+
+            ret = av_read_frame(fmt_ctx_, packet);
+            if (ret == AVERROR(EAGAIN))
+            {
+                // try reading again later
+                av_packet_free(&packet);
+                result = nullptr;
+                return;
+            }
+            else if (ret)
+            {
+                printAVError(ret);
+                av_packet_free(&packet);
+                SetError("Could not read frame");
+                return;
+            }
+
+            // need video only
+            if (packet->stream_index != videoStreamIndex)
+            {
+                av_packet_unref(packet);
+                continue;
+            }
+
+            ret = avcodec_send_packet(codecContext, packet);
             av_packet_unref(packet); // Reset the packet for the next frame
+            // success means decode was successful
+            // EAGAIN means a frame is waiting to be read
+            if (ret == AVERROR(EAGAIN))
+            {
+                av_packet_free(&packet);
+                result = nullptr;
+                return;
+            }
+            else if (ret)
+            {
+                printAVError(ret);
+                av_packet_free(&packet);
+                SetError("Could not send packet");
+                return;
+            }
+            // successfully send data to decoder, so try again immediately.
         }
-
-        av_frame_free(&frame);
-        av_packet_free(&packet);
-
-        SetError("Could not read frame");
     }
 
     // This method runs in the main thread after Execute completes successfully
     void OnOK() override
     {
         Napi::Env env = Env();
-        napi_resolve_deferred(Env(), deferred, AVFrameObject::NewInstance(env, result));
+        if (!result)
+        {
+            napi_resolve_deferred(Env(), deferred, env.Undefined());
+        }
+        else
+        {
+            napi_resolve_deferred(Env(), deferred, AVFrameObject::NewInstance(env, result));
+        }
     }
 
     // This method runs in the main thread if Execute fails
