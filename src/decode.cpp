@@ -50,19 +50,19 @@ Napi::Value set_console_callback(const Napi::CallbackInfo &info)
     return env.Null();
 }
 
-void printAVError(int errnum)
-{
-    char errbuf[256];
+// void printAVError(int errnum)
+// {
+//     char errbuf[256];
 
-    // Convert the error code to a string
-    if (av_strerror(errnum, errbuf, sizeof(errbuf)) < 0)
-    {
-        printf("Unknown error code: %d", errnum);
-        return;
-    }
+//     // Convert the error code to a string
+//     if (av_strerror(errnum, errbuf, sizeof(errbuf)) < 0)
+//     {
+//         printf("Unknown error code: %d", errnum);
+//         return;
+//     }
 
-    printf("Error: %s\n", errbuf);
-}
+//     printf("Error: %s\n", errbuf);
+// }
 
 class ReadFrameWorker : public Napi::AsyncWorker
 {
@@ -94,14 +94,14 @@ public:
         }
         else if (ret < 0 || ret == AVERROR_EOF)
         {
-            printAVError(ret);
+            // printAVError(ret);
             av_packet_free(&packet);
             SetError("Could not read frame");
             return;
         }
         else
         {
-            printf("returning frame 0\n");
+            // printf("returning frame 0\n");
             av_packet_free(&packet);
             result = frame;
             return;
@@ -112,7 +112,7 @@ public:
         {
             if (packet->stream_index == videoStreamIndex)
             {
-                printf("av packet size: %d\n", packet->size);
+                // printf("av packet size: %d\n", packet->size);
                 if ((ret = avcodec_send_packet(codecContext, packet)) == 0)
                 {
                     ret = avcodec_receive_frame(codecContext, frame);
@@ -122,14 +122,14 @@ public:
                     }
                     else if (ret < 0 || ret == AVERROR_EOF)
                     {
-                        printAVError(ret);
+                        // printAVError(ret);
                         av_packet_free(&packet);
                         SetError("Could not read frame");
                         return;
                     }
                     else
                     {
-                        printf("returning frame 0\n");
+                        // printf("returning frame 1\n");
                         av_packet_free(&packet);
                         result = frame;
                         return;
@@ -137,7 +137,7 @@ public:
                 }
                 else
                 {
-                    printAVError(ret);
+                    // printAVError(ret);
                 }
             }
             av_packet_unref(packet); // Reset the packet for the next frame
