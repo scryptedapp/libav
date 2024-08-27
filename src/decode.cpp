@@ -67,11 +67,10 @@ void printAVError(int errnum)
 class ReadFrameWorker : public Napi::AsyncWorker
 {
 public:
-    bool reseting;
     ReadFrameWorker(napi_env env, napi_deferred deferred, AVFormatContext *fmt_ctx, AVCodecContext *codecContext, int videoStreamIndex)
-        : Napi::AsyncWorker(env), deferred(deferred), fmt_ctx_(fmt_ctx), codecContext(codecContext), videoStreamIndex(videoStreamIndex) {
-            reseting = false;
-        }
+        : Napi::AsyncWorker(env), deferred(deferred), fmt_ctx_(fmt_ctx), codecContext(codecContext), videoStreamIndex(videoStreamIndex)
+    {
+    }
 
     void Execute() override
     {
@@ -93,90 +92,65 @@ public:
         int ret;
         while (true)
         {
-            // attempt to read frames first, EGAIN will be returned if data needs to be
+            // attempt to read frames first, EAGAIN will be returned if data needs to be
             // sent to decoder.
-            if (!reseting)
+            ret = avcodec_receive_frame(codecContext, frame);
+            if (!ret)
             {
-                ret = avcodec_receive_frame(codecContext, frame);
-                if (!ret)
-                {
-                    // printf("returning frame 0\n");
-                    av_packet_free(&packet);
-                    result = frame;
-                    return;
-                }
-                else if (ret != AVERROR(EAGAIN))
-                {
-                    printAVError(ret);
-                    av_packet_free(&packet);
-                    SetError("error during avcodec_receive_frame");
-                    return;
-                }
-            }
-            reseting = false;
-
-            ret = av_read_frame(fmt_ctx_, packet);
-            if (ret == AVERROR(EAGAIN))
-            {
-                // try reading again later
+                // printf("returning frame 0\n");
                 av_packet_free(&packet);
-                result = nullptr;
+                result = frame;
                 return;
             }
-            else if (ret)
+            else if (ret != AVERROR(EAGAIN))
             {
                 printAVError(ret);
                 av_packet_free(&packet);
-                SetError("Could not read frame");
+                SetError("error during avcodec_receive_frame");
                 return;
             }
 
-            // need video only
-            if (packet->stream_index != videoStreamIndex)
+            while (true)
             {
-                av_packet_unref(packet);
-                continue;
+                ret = av_read_frame(fmt_ctx_, packet);
+                if (ret == AVERROR(EAGAIN))
+                {
+                    // try reading again later
+                    av_packet_free(&packet);
+                    result = nullptr;
+                    return;
+                }
+                else if (ret)
+                {
+                    printAVError(ret);
+                    av_packet_free(&packet);
+                    SetError("Could not read frame");
+                    return;
+                }
+
+                if (packet->stream_index == videoStreamIndex)
+                {
+                    av_packet_unref(packet);
+                    break;
+                }
+                // not video so keep looping.
             }
 
             ret = avcodec_send_packet(codecContext, packet);
             av_packet_unref(packet); // Reset the packet for the next frame
 
-            // when receiving a decoder error, attempt to flush.
-            if (ret && ret != AVERROR(EAGAIN))
+            // on decoder feed error, try again next packet.
+            // could be starting on a non keyframe or data corruption
+            // which may be recoverable.
+            if (ret)
             {
                 av_packet_free(&packet);
-
-                fprintf(stderr, "Error sending packet to decoder, attempting recovery.\n");
-                ret = avcodec_send_packet(codecContext, NULL);
-                if (ret)
-                {
-                    SetError("Recovery failed.");
-                    printAVError(ret);
-                    return;
-                }
-                reseting = true;
-                result = nullptr;
-                return;
-            }
-
-            // success means decode was successful
-            // EAGAIN means a frame is waiting to be read
-            if (ret == AVERROR(EAGAIN))
-            {
-                av_packet_free(&packet);
-                result = nullptr;
-                return;
-            }
-            else if (ret)
-            {
+                fprintf(stderr, "Error sending packet to decoder.\n");
                 printAVError(ret);
-                av_packet_free(&packet);
-                // SetError("Could not send packet");
-                // try sending data to the decoder again? i dunno
                 result = nullptr;
                 return;
             }
-            // successfully send data to decoder, so try again immediately.
+            // successfully send data to decoder, so try reading from it again immediately.
         }
     }
 
