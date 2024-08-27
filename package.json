@@ -1,6 +1,6 @@
 {
   "name": "@scrypted/libav",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "dependencies": {
     "node-addon-api": "^8.1.0",
     "prebuild-install": "npm:@scrypted/prebuild-install@^7.1.8"
