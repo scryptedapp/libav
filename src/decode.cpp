@@ -145,7 +145,9 @@ public:
             {
                 printAVError(ret);
                 av_packet_free(&packet);
-                SetError("Could not send packet");
+                // SetError("Could not send packet");
+                // try sending data to the decoder again? i dunno
+                result = nullptr;
                 return;
             }
             // successfully send data to decoder, so try again immediately.
