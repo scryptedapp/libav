@@ -108,7 +108,9 @@ public:
                 return;
             }
 
-            ret = av_read_frame(fmt_ctx_, packet);
+            codecContext->
+
+                ret = av_read_frame(fmt_ctx_, packet);
             if (ret == AVERROR(EAGAIN))
             {
                 // try reading again later
@@ -133,6 +135,18 @@ public:
 
             ret = avcodec_send_packet(codecContext, packet);
             av_packet_unref(packet); // Reset the packet for the next frame
+
+            // when receiving a decoder error, attempt to flush.
+            if (ret && ret != AVERROR(EAGAIN))
+            {
+                fprintf(stderr, "Error sending packet to decoder, attempting recovery.\n");
+                ret = avcodec_send_packet(codec_ctx, NULL);
+                if (ret)
+                {
+                    printAVError(ret);
+                }
+            }
+
             // success means decode was successful
             // EAGAIN means a frame is waiting to be read
             if (ret == AVERROR(EAGAIN))
