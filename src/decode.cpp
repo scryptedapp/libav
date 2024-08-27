@@ -130,10 +130,10 @@ public:
 
                 if (packet->stream_index == videoStreamIndex)
                 {
-                    av_packet_unref(packet);
                     break;
                 }
                 // not video so keep looping.
+                av_packet_unref(packet);
             }
 
             ret = avcodec_send_packet(codecContext, packet);
