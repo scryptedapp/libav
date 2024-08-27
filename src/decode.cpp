@@ -50,6 +50,20 @@ Napi::Value set_console_callback(const Napi::CallbackInfo &info)
     return env.Null();
 }
 
+void printAVError(int errnum)
+{
+    char errbuf[256];
+
+    // Convert the error code to a string
+    if (av_strerror(errnum, errbuf, sizeof(errbuf)) < 0)
+    {
+        printf(sizeof(errbuf), "Unknown error code: %d", errnum);
+        return;
+    }
+
+    printf("Error: %s\n", errbuf);
+}
+
 class ReadFrameWorker : public Napi::AsyncWorker
 {
 public:
@@ -96,12 +110,12 @@ public:
                     }
                     else
                     {
-                        fprintf(stderr, "Error while receiving a frame from the decoder: %d\n", ret);
+                        printAVError(ret);
                     }
                 }
                 else
                 {
-                    fprintf(stderr, "Error while sending a packet to the decoder: %d\n", ret);
+                    printAVError(ret);
                 }
             }
             av_packet_unref(packet); // Reset the packet for the next frame
