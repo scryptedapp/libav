@@ -57,7 +57,7 @@ void printAVError(int errnum)
     // Convert the error code to a string
     if (av_strerror(errnum, errbuf, sizeof(errbuf)) < 0)
     {
-        printf(sizeof(errbuf), "Unknown error code: %d", errnum);
+        printf("Unknown error code: %d", errnum);
         return;
     }
 
