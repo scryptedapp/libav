@@ -83,23 +83,19 @@ public:
         // Decode video frames
         while (av_read_frame(fmt_ctx_, packet) >= 0)
         {
-            fprintf(stdout, "read a frame\n");
-            if (packet->stream_index != videoStreamIndex)
+            if (packet->stream_index == videoStreamIndex)
             {
-                continue;
-            }
-
-            if (avcodec_send_packet(codecContext, packet) == 0)
-            {
-                if (avcodec_receive_frame(codecContext, frame) == 0)
+                if (avcodec_send_packet(codecContext, packet) == 0)
                 {
-                    fprintf(stdout, "finished reading a frame\n");
-                    av_packet_free(&packet);
-                    result = frame;
-                    return;
+                    if (avcodec_receive_frame(codecContext, frame) == 0)
+                    {
+                        av_packet_free(&packet);
+                        result = frame;
+                        return;
+                    }
                 }
+                av_packet_unref(packet); // Reset the packet for the next frame
             }
-            av_packet_unref(packet); // Reset the packet for the next frame
         }
 
         av_frame_free(&frame);
@@ -440,12 +436,12 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
         return env.Null();
     }
 
-    // Find the first video stream
-    #ifdef __APPLE__
+// Find the first video stream
+#ifdef __APPLE__
     const struct AVCodec *codec = nullptr;
-    #else
+#else
     struct AVCodec *codec = nullptr;
-    #endif
+#endif
 
     /* find the video stream information */
     ret = av_find_best_stream(fmt_ctx_, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, 0);
