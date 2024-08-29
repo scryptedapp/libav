@@ -604,12 +604,7 @@ Napi::Value AVFormatContextObject::GetPointer(const Napi::CallbackInfo &info)
 
 Napi::Object Init(Napi::Env env, Napi::Object exports)
 {
-    // int error_code = AVERROR(EAGAIN);
-    // printf("AVERROR(EAGAIN) = %d\n", error_code);
-    // error_code = AVERROR(AVERROR_EOF);
-    // printf("AVERROR(AVERROR_EOF) = %d\n", error_code);
-    // error_code = AVERROR(EINVAL);
-    // printf("AVERROR(EINVAL) = %d\n", error_code);
+    av_log_set_level(AV_LOG_QUIET);
 
     AVFilterGraphObject::Init(env, exports);
     AVFrameObject::Init(env, exports);
