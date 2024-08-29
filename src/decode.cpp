@@ -31,6 +31,7 @@ static void ffmpeg_log_callback(void *ptr, int level, const char *fmt, va_list v
         // Create a formatted string
         char buffer[1024];
         vsnprintf(buffer, sizeof(buffer), fmt, vl);
+        fprintf(stderr, "%s", buffer);
 
         // Retrieve the environment and callback function
         Napi::Env env = logCallbackRef.Env();
@@ -526,6 +527,16 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
 
     if (decoder.length())
     {
+        enum AVHWDeviceType iter = AV_HWDEVICE_TYPE_NONE;
+        fprintf(stderr, "Available HW Devices:\n");
+        while (true) {
+            iter = av_hwdevice_iterate_types(iter);
+            if (iter == AV_HWDEVICE_TYPE_NONE) {
+                break;
+            }
+            fprintf(stderr, "HW Device: %s\n", av_hwdevice_get_type_name(iter));
+        }
+
         enum AVHWDeviceType hw_device_value = av_hwdevice_find_type_by_name(decoder.c_str());
         if (hw_device_value == AV_HWDEVICE_TYPE_NONE)
         {
