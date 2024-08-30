@@ -200,7 +200,7 @@ private:
     int videoStreamIndex;
     AVCodecContext *codecContext;
     AVBufferRef *hw_device_ctx;
-    AVHWFramesContext *frames_ctx;
+    // AVHWFramesContext *frames_ctx;
 
     Napi::Value Open(const Napi::CallbackInfo &info);
     Napi::Value Close(const Napi::CallbackInfo &info);
@@ -425,7 +425,7 @@ Napi::Value AVFormatContextObject::CreateFilter(const Napi::CallbackInfo &info)
             goto end;
         }
 
-        frames_ctx = (AVHWFramesContext *)hw_frames_ctx->data;
+        AVHWFramesContext *frames_ctx = (AVHWFramesContext *)hw_frames_ctx->data;
         frames_ctx->format = hw_pix_fmt;
         frames_ctx->sw_format = AV_PIX_FMT_NV12; // or any other software format
         frames_ctx->width = width;
@@ -529,9 +529,11 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
     {
         enum AVHWDeviceType iter = AV_HWDEVICE_TYPE_NONE;
         fprintf(stderr, "Available HW Devices:\n");
-        while (true) {
+        while (true)
+        {
             iter = av_hwdevice_iterate_types(iter);
-            if (iter == AV_HWDEVICE_TYPE_NONE) {
+            if (iter == AV_HWDEVICE_TYPE_NONE)
+            {
                 break;
             }
             fprintf(stderr, "HW Device: %s\n", av_hwdevice_get_type_name(iter));
@@ -580,6 +582,16 @@ AVFormatContextObject::~AVFormatContextObject()
 
 Napi::Value AVFormatContextObject::Close(const Napi::CallbackInfo &info)
 {
+    if (codecContext)
+    {
+        avcodec_free_context(&codecContext);
+        codecContext = nullptr;
+    }
+    if (hw_device_ctx)
+    {
+        av_buffer_unref(&hw_device_ctx);
+        hw_device_ctx = nullptr;
+    }
     if (fmt_ctx_)
     {
         av_log(NULL, AV_LOG_INFO, "Closing AVFormatContext\n");
@@ -587,6 +599,7 @@ Napi::Value AVFormatContextObject::Close(const Napi::CallbackInfo &info)
         avformat_free_context(fmt_ctx_);
         fmt_ctx_ = nullptr;
     }
+
     return info.Env().Undefined();
 }
 
