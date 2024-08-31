@@ -141,12 +141,8 @@ Napi::Value AVFrameObject::ToJPEG(const Napi::CallbackInfo &info)
         return env.Null();
     }
 
-    AVPacket pkt;
-    av_init_packet(&pkt);
-    pkt.data = NULL; // Packet data will be allocated by the encoder
-    pkt.size = 0;
-
-    ret = avcodec_receive_packet(c, &pkt);
+    AVPacket *pkt = av_packet_alloc();
+    ret = avcodec_receive_packet(c, pkt);
     if (ret < 0)
     {
         avcodec_free_context(&c);
@@ -154,8 +150,8 @@ Napi::Value AVFrameObject::ToJPEG(const Napi::CallbackInfo &info)
         return env.Null();
     }
 
-    Napi::Buffer<uint8_t> buffer = Napi::Buffer<uint8_t>::Copy(env, pkt.data, pkt.size);
-    av_packet_unref(&pkt);
+    Napi::Buffer<uint8_t> buffer = Napi::Buffer<uint8_t>::Copy(env, pkt->data, pkt->size);
+    av_packet_free(&pkt);
     avcodec_free_context(&c);
 
     return buffer;
