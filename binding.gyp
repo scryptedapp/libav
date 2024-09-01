@@ -70,6 +70,7 @@
                             "<(module_root_dir)/FFmpeg/libavformat/libavformat.a",
                             "<(module_root_dir)/FFmpeg/libavutil/libavutil.a",
                             "<(module_root_dir)/FFmpeg/libswscale/libswscale.a",
+                            "-ldrm",
                         ],
                         "ldflags": ["-Wl,-Bsymbolic"],
                     },
