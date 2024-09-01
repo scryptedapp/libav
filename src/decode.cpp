@@ -42,13 +42,74 @@ static void ffmpeg_log_callback(void *ptr, int level, const char *fmt, va_list v
     }
 }
 
-Napi::Value set_console_callback(const Napi::CallbackInfo &info)
+Napi::Value setLogCallback(const Napi::CallbackInfo &info)
 {
+    Napi::Env env = info.Env();
+    if (info.Length() < 1)
+    {
+        logCallbackRef.Reset();
+        return env.Null();
+    }
+
     logCallbackRef = Napi::Persistent(info[0].As<Napi::Function>()); // Save the log callback function
 
     av_log_set_callback(ffmpeg_log_callback);
-    av_log_set_level(AV_LOG_VERBOSE);
+    return env.Null();
+}
+
+Napi::Value setLogLevel(const Napi::CallbackInfo &info)
+{
     Napi::Env env = info.Env();
+
+    // ensure 1 param
+    if (info.Length() < 1)
+    {
+        Napi::Error::New(env, "Expected 1 argument").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+    // get string from info
+    std::string level = info[0].As<Napi::String>().Utf8Value();
+    if (level == "debug")
+    {
+        av_log_set_level(AV_LOG_DEBUG);
+    }
+    else if (level == "verbose")
+    {
+        av_log_set_level(AV_LOG_VERBOSE);
+    }
+    else if (level == "info")
+    {
+        av_log_set_level(AV_LOG_INFO);
+    }
+    else if (level == "warning")
+    {
+        av_log_set_level(AV_LOG_WARNING);
+    }
+    else if (level == "error")
+    {
+        av_log_set_level(AV_LOG_ERROR);
+    }
+    else if (level == "fatal")
+    {
+        av_log_set_level(AV_LOG_FATAL);
+    }
+    else if (level == "panic")
+    {
+        av_log_set_level(AV_LOG_PANIC);
+    }
+    else if (level == "quiet")
+    {
+        av_log_set_level(AV_LOG_QUIET);
+    }
+    else if (level == "trace")
+    {
+        av_log_set_level(AV_LOG_TRACE);
+    }
+    else
+    {
+        Napi::Error::New(env, "Invalid log level").ThrowAsJavaScriptException();
+        return env.Null();
+    }
     return env.Null();
 }
 
@@ -668,7 +729,8 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
     AVFrameObject::Init(env, exports);
     AVFormatContextObject::Init(env, exports);
 
-    exports.Set(Napi::String::New(env, "set_console_callback"), Napi::Function::New(env, set_console_callback));
+    exports.Set(Napi::String::New(env, "setLogCallback"), Napi::Function::New(env, setLogCallback));
+    exports.Set(Napi::String::New(env, "setLogLevel"), Napi::Function::New(env, setLogLevel));
     return exports;
 }
 

@@ -80,7 +80,11 @@ export interface AVFormatContext {
 }
 
 export function setAVLogCallback(callback: (msg: string) => void) {
-    addon.set_console_callback(callback);
+    addon.setLogCallback(callback);
+}
+
+export function setAVLogLevel(level: 'quiet' | 'panic' | 'fatal' | 'error' | 'warning' | 'info' | 'verbose' | 'debug' | 'trace') {
+    addon.setLogLevel(level);
 }
 
 export function createAVFormatContext(): AVFormatContext {
