@@ -62,7 +62,7 @@
                         ],
                         "include_dirs": [
                             "<!@(node -p \"require('node-addon-api').include\")",
-                            "/usr/include",
+                            "<(module_root_dir)/FFmpeg",
                         ],
                         "libraries": [
                             "<(module_root_dir)/FFmpeg/libavcodec/libavcodec.a",
