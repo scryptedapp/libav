@@ -79,7 +79,7 @@ export interface AVFormatContext {
     close(): void;
 }
 
-export function setAVLogCallback(callback: (msg: string) => void) {
+export function setAVLogCallback(callback: (msg: string, level: number) => void) {
     addon.setLogCallback(callback);
 }
 
