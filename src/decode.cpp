@@ -66,16 +66,40 @@ void printAVError(int errnum)
     fprintf(stderr, "Error: %s\n", errbuf);
 }
 
+class AVFormatContextObject : public Napi::ObjectWrap<AVFormatContextObject>
+{
+public:
+    static Napi::Object Init(Napi::Env env, Napi::Object exports);
+    AVFormatContextObject(const Napi::CallbackInfo &info);
+    ~AVFormatContextObject(); // Explicitly declare the destructor
+    enum AVPixelFormat hw_pix_fmt;
+    static Napi::FunctionReference constructor;
+    AVFormatContext *fmt_ctx_;
+    int videoStreamIndex;
+    AVCodecContext *codecContext;
+    AVBufferRef *hw_frames_ctx;
+    AVBSFContext *bsf;
+
+private:
+    Napi::Value Open(const Napi::CallbackInfo &info);
+    Napi::Value Close(const Napi::CallbackInfo &info);
+    Napi::Value GetMetadata(const Napi::CallbackInfo &info);
+    Napi::Value GetPointer(const Napi::CallbackInfo &info);
+    Napi::Value ReadFrame(const Napi::CallbackInfo &info);
+    Napi::Value CreateFilter(const Napi::CallbackInfo &info);
+};
+
 class ReadFrameWorker : public Napi::AsyncWorker
 {
 public:
-    ReadFrameWorker(napi_env env, napi_deferred deferred, AVFormatContext *fmt_ctx, AVCodecContext *codecContext, AVBSFContext *bsf, int videoStreamIndex)
-        : Napi::AsyncWorker(env), deferred(deferred), fmt_ctx_(fmt_ctx), codecContext(codecContext), bsf(bsf), videoStreamIndex(videoStreamIndex)
+    ReadFrameWorker(napi_env env, napi_deferred deferred, AVFormatContextObject *formatContextObject, AVCodecContext *codecContext, AVBSFContext *bsf, int videoStreamIndex)
+        : Napi::AsyncWorker(env), deferred(deferred), formatContextObject(formatContextObject), codecContext(codecContext), bsf(bsf), videoStreamIndex(videoStreamIndex)
     {
     }
 
     void Execute() override
     {
+        AVFormatContext *fmt_ctx_ = formatContextObject->fmt_ctx_;
         AVPacket *packet = av_packet_alloc();
         if (!packet)
         {
@@ -101,6 +125,10 @@ public:
             {
                 // printf("returning frame 0\n");
                 av_packet_free(&packet);
+                if (!formatContextObject->hw_frames_ctx && frame->hw_frames_ctx)
+                {
+                    formatContextObject->hw_frames_ctx = av_buffer_ref(frame->hw_frames_ctx);
+                }
                 result = frame;
                 return;
             }
@@ -216,34 +244,10 @@ public:
 private:
     AVFrame *result;
     napi_deferred deferred;
-    AVFormatContext *fmt_ctx_;
+    AVFormatContextObject *formatContextObject;
     AVCodecContext *codecContext;
     AVBSFContext *bsf;
     int videoStreamIndex;
-};
-
-class AVFormatContextObject : public Napi::ObjectWrap<AVFormatContextObject>
-{
-public:
-    static Napi::Object Init(Napi::Env env, Napi::Object exports);
-    AVFormatContextObject(const Napi::CallbackInfo &info);
-    ~AVFormatContextObject(); // Explicitly declare the destructor
-    enum AVPixelFormat hw_pix_fmt;
-
-private:
-    static Napi::FunctionReference constructor;
-    AVFormatContext *fmt_ctx_;
-    int videoStreamIndex;
-    AVCodecContext *codecContext;
-    AVBufferRef *hw_device_ctx;
-    AVBSFContext *bsf;
-
-    Napi::Value Open(const Napi::CallbackInfo &info);
-    Napi::Value Close(const Napi::CallbackInfo &info);
-    Napi::Value GetMetadata(const Napi::CallbackInfo &info);
-    Napi::Value GetPointer(const Napi::CallbackInfo &info);
-    Napi::Value ReadFrame(const Napi::CallbackInfo &info);
-    Napi::Value CreateFilter(const Napi::CallbackInfo &info);
 };
 
 static enum AVPixelFormat get_hw_format(AVCodecContext *ctx,
@@ -293,7 +297,7 @@ AVFormatContextObject::AVFormatContextObject(const Napi::CallbackInfo &info)
     : Napi::ObjectWrap<AVFormatContextObject>(info),
       videoStreamIndex(-1),
       codecContext(nullptr),
-      hw_device_ctx(nullptr),
+      hw_frames_ctx(nullptr),
       bsf(nullptr)
 {
     Napi::Env env = info.Env();
@@ -334,7 +338,7 @@ Napi::Value AVFormatContextObject::ReadFrame(const Napi::CallbackInfo &info)
     napi_create_promise(env, &deferred, &promise);
 
     // Create and queue the AsyncWorker, passing the deferred handle
-    ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, fmt_ctx_, codecContext, bsf, videoStreamIndex);
+    ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, this, codecContext, bsf, videoStreamIndex);
     worker->Queue();
 
     // Return the promise to JavaScript
@@ -393,7 +397,6 @@ Napi::Value AVFormatContextObject::CreateFilter(const Napi::CallbackInfo &info)
     AVBufferSrcParameters *src_params;
     AVFilterContext *buffersrc_ctx;
     AVFilterContext *buffersink_ctx;
-    AVBufferRef *hw_frames_ctx;
 
     struct AVFilterGraph *filter_graph = avfilter_graph_alloc();
     avfilter_graph_set_auto_convert(filter_graph, AVFILTER_AUTO_CONVERT_NONE);
@@ -454,31 +457,9 @@ Napi::Value AVFormatContextObject::CreateFilter(const Napi::CallbackInfo &info)
     }
 
     // 2. Create a hardware frame context from the device context
-    if (hw_device_ctx)
+    if (hw_frames_ctx)
     {
-        hw_frames_ctx = av_hwframe_ctx_alloc(hw_device_ctx);
-        if (!hw_frames_ctx)
-        {
-            Napi::Error::New(env, "Failed to allocate hardware frame context").ThrowAsJavaScriptException();
-            goto end;
-        }
-
-        AVHWFramesContext *frames_ctx = (AVHWFramesContext *)hw_frames_ctx->data;
-        frames_ctx->format = hw_pix_fmt;
-        frames_ctx->sw_format = AV_PIX_FMT_NV12; // or any other software format
-        frames_ctx->width = width;
-        frames_ctx->height = height;
-        frames_ctx->initial_pool_size = 20;
-
-        ret = av_hwframe_ctx_init(hw_frames_ctx);
-        if (ret < 0)
-        {
-            av_buffer_unref(&hw_frames_ctx);
-            Napi::Error::New(env, "Failed to initialize hardware frame context").ThrowAsJavaScriptException();
-            goto end;
-        }
-
-        src_params->hw_frames_ctx = hw_frames_ctx;
+        src_params->hw_frames_ctx = av_buffer_ref(hw_frames_ctx);
     }
 
     ret = av_buffersrc_parameters_set(buffersrc_ctx, src_params);
@@ -621,6 +602,7 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
             }
         }
 
+        AVBufferRef *hw_device_ctx = nullptr;
         if ((ret = av_hwdevice_ctx_create(&hw_device_ctx, hw_device_value,
                                           NULL, NULL, 0)) < 0)
         {
@@ -629,7 +611,7 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
         }
 
         codecContext->get_format = get_hw_format;
-        codecContext->hw_device_ctx = av_buffer_ref(hw_device_ctx);
+        codecContext->hw_device_ctx = hw_device_ctx;
     }
 
     return Napi::Boolean::New(env, true);
@@ -651,10 +633,10 @@ Napi::Value AVFormatContextObject::Close(const Napi::CallbackInfo &info)
         avcodec_free_context(&codecContext);
         codecContext = nullptr;
     }
-    if (hw_device_ctx)
+    if (hw_frames_ctx)
     {
-        av_buffer_unref(&hw_device_ctx);
-        hw_device_ctx = nullptr;
+        av_buffer_unref(&hw_frames_ctx);
+        hw_frames_ctx = nullptr;
     }
     if (fmt_ctx_)
     {
