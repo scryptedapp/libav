@@ -48,15 +48,28 @@
                 [
                     "OS=='linux'",
                     {
+                        "actions": [
+                            {
+                                "action_name": "ffmpeg configure",
+                                "inputs": ["<(module_root_dir)/FFmpeg/configure"],
+                                "outputs": ["<(module_root_dir)/FFmpeg/ffmpeg"],
+                                "action": [
+                                    "sh",
+                                    "-c",
+                                    "src/build-ffmpeg-linux.sh",
+                                ],
+                            },
+                        ],
                         "include_dirs": [
                             "<!@(node -p \"require('node-addon-api').include\")",
                             "/usr/include",
                         ],
                         "libraries": [
-                            "-lavcodec",
-                            "-lavformat",
-                            "-lavfilter",
-                            "-lavutil",
+                            "<(module_root_dir)/FFmpeg/libavcodec/libavcodec.a",
+                            "<(module_root_dir)/FFmpeg/libavfilter/libavfilter.a",
+                            "<(module_root_dir)/FFmpeg/libavformat/libavformat.a",
+                            "<(module_root_dir)/FFmpeg/libavutil/libavutil.a",
+                            "<(module_root_dir)/FFmpeg/libswscale/libswscale.a",
                         ],
                     },
                 ],
