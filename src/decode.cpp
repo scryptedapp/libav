@@ -557,6 +557,9 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
         return env.Null();
     }
 
+    // streams may not provide extra data automatically before key frames, causing
+    // decoders to fail. this is a bit weird since presumably the decoder
+    // should prime the extra data from the AVCodecContext and AVCodec...
     const AVBitStreamFilter *f = av_bsf_get_by_name("dump_extra");
     if (!f)
     {
