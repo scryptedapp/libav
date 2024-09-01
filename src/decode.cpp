@@ -27,19 +27,15 @@ static void ffmpeg_log_callback(void *ptr, int level, const char *fmt, va_list v
         return;
     }
 
-    if (level <= AV_LOG_DEBUG)
-    {
-        // Create a formatted string
-        char buffer[1024];
-        vsnprintf(buffer, sizeof(buffer), fmt, vl);
-        fprintf(stderr, "%s", buffer);
+    // Create a formatted string
+    char buffer[1024];
+    vsnprintf(buffer, sizeof(buffer), fmt, vl);
 
-        // Retrieve the environment and callback function
-        Napi::Env env = logCallbackRef.Env();
-        Napi::Function callback = logCallbackRef.Value();
+    // Retrieve the environment and callback function
+    Napi::Env env = logCallbackRef.Env();
+    Napi::Function callback = logCallbackRef.Value();
 
-        callback.Call(env.Global(), {Napi::String::New(env, buffer)});
-    }
+    callback.Call(env.Global(), {Napi::String::New(env, buffer), Napi::Number::New(env, level)});
 }
 
 Napi::Value setLogCallback(const Napi::CallbackInfo &info)
