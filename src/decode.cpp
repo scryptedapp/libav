@@ -557,22 +557,7 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
         return env.Null();
     }
 
-    const char *filterName = nullptr;
-    if (codecContext->codec_id == AV_CODEC_ID_H264)
-    {
-        filterName = "h264_mp4toannexb";
-    }
-    else if (codecContext->codec_id == AV_CODEC_ID_HEVC)
-    {
-        filterName = "hevc_mp4toannexb";
-    }
-    else
-    {
-        Napi::Error::New(env, "Unsupported codec").ThrowAsJavaScriptException();
-        return env.Null();
-    }
-
-    const AVBitStreamFilter *f = av_bsf_get_by_name(filterName);
+    const AVBitStreamFilter *f = av_bsf_get_by_name("dump_extra");
     if (!f)
     {
         Napi::Error::New(env, "Failed to find bitstream filter").ThrowAsJavaScriptException();
