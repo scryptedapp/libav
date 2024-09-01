@@ -71,6 +71,8 @@
                             "<(module_root_dir)/FFmpeg/libavutil/libavutil.a",
                             "<(module_root_dir)/FFmpeg/libswscale/libswscale.a",
                             "-ldrm",
+                            "-lva",
+                            "-lva-drm",
                         ],
                         "ldflags": ["-Wl,-Bsymbolic"],
                     },
