@@ -396,6 +396,7 @@ Napi::Value AVFormatContextObject::CreateFilter(const Napi::CallbackInfo &info)
     AVBufferRef *hw_frames_ctx;
 
     struct AVFilterGraph *filter_graph = avfilter_graph_alloc();
+    avfilter_graph_set_auto_convert(filter_graph, AVFILTER_AUTO_CONVERT_NONE);
     if (!outputs || !inputs || !filter_graph)
     {
         Napi::Error::New(env, "filter graph creation failed").ThrowAsJavaScriptException();
