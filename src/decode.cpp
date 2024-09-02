@@ -9,7 +9,6 @@ extern "C"
 #include <libavfilter/buffersrc.h>
 #include <libavfilter/avfilter.h>
 #include <libavutil/opt.h>
-#include <libavcodec/bsf.h>
 }
 
 #include <thread>
@@ -116,11 +115,11 @@ void printAVError(int errnum)
     // Convert the error code to a string
     if (av_strerror(errnum, errbuf, sizeof(errbuf)) < 0)
     {
-        fprintf(stderr, "Unknown error code: %d\n", errnum);
+        printf("Unknown error code: %d", errnum);
         return;
     }
 
-    fprintf(stderr, "Error: %s\n", errbuf);
+    printf("Error: %s\n", errbuf);
 }
 
 class AVFormatContextObject : public Napi::ObjectWrap<AVFormatContextObject>
@@ -134,7 +133,6 @@ public:
     AVFormatContext *fmt_ctx_;
     int videoStreamIndex;
     AVCodecContext *codecContext;
-    AVBSFContext *bsf;
 
 private:
     Napi::Value Open(const Napi::CallbackInfo &info);
@@ -148,8 +146,8 @@ private:
 class ReadFrameWorker : public Napi::AsyncWorker
 {
 public:
-    ReadFrameWorker(napi_env env, napi_deferred deferred, AVFormatContextObject *formatContextObject, AVCodecContext *codecContext, AVBSFContext *bsf, int videoStreamIndex)
-        : Napi::AsyncWorker(env), deferred(deferred), formatContextObject(formatContextObject), codecContext(codecContext), bsf(bsf), videoStreamIndex(videoStreamIndex)
+    ReadFrameWorker(napi_env env, napi_deferred deferred, AVFormatContextObject *formatContextObject, AVCodecContext *codecContext, int videoStreamIndex)
+        : Napi::AsyncWorker(env), deferred(deferred), formatContextObject(formatContextObject), codecContext(codecContext), videoStreamIndex(videoStreamIndex)
     {
     }
 
@@ -218,55 +216,21 @@ public:
                 av_packet_unref(packet);
             }
 
-            ret = av_bsf_send_packet(bsf, packet);
-            // EAGAIN means data needs to be read from the filter.
-            if (ret && ret != AVERROR(EAGAIN))
-            {
-                printAVError(ret);
-                av_packet_free(&packet);
-                SetError("Error sending packet to bitstream filter");
-                return;
-            }
+            ret = avcodec_send_packet(codecContext, packet);
+            av_packet_unref(packet); // Reset the packet for the next frame
 
-            AVPacket *filteredPacket = av_packet_alloc();
-            int decoderError = 0;
-            while (true)
+            // on decoder feed error, try again next packet.
+            // could be starting on a non keyframe or data corruption
+            // which may be recoverable.
+            if (ret)
             {
-                ret = av_bsf_receive_packet(bsf, filteredPacket);
-                if (ret == AVERROR(EAGAIN))
-                {
-                    // finished with the available data, can try reading decoder now.
-                    av_packet_free(&filteredPacket);
-                    av_packet_free(&packet);
-                    result = nullptr;
-                    break;
-                }
-                else if (ret)
-                {
-                    printAVError(ret);
-                    av_packet_free(&filteredPacket);
-                    av_packet_free(&packet);
-                    SetError("error during av_bsf_receive_packet");
-                    return;
-                }
-
-                ret = avcodec_send_packet(codecContext, filteredPacket);
-                av_packet_unref(filteredPacket); // Reset the packet for the next frame
-
-                // on decoder feed error, try again next packet.
-                // could be starting on a non keyframe or data corruption
-                // which may be recoverable.
-                decoderError = ret;
-            }
-            if (decoderError)
-            {
-                av_packet_free(&filteredPacket);
                 av_packet_free(&packet);
                 fprintf(stderr, "Error sending packet to decoder.\n");
-                printAVError(decoderError);
+                printAVError(ret);
                 result = nullptr;
                 return;
             }
+            // successfully send data to decoder, so try reading from it again immediately.
         }
     }
 
@@ -298,7 +262,6 @@ private:
     napi_deferred deferred;
     AVFormatContextObject *formatContextObject;
     AVCodecContext *codecContext;
-    AVBSFContext *bsf;
     int videoStreamIndex;
 };
 
@@ -348,8 +311,7 @@ Napi::Object AVFormatContextObject::Init(Napi::Env env, Napi::Object exports)
 AVFormatContextObject::AVFormatContextObject(const Napi::CallbackInfo &info)
     : Napi::ObjectWrap<AVFormatContextObject>(info),
       videoStreamIndex(-1),
-      codecContext(nullptr),
-      bsf(nullptr)
+      codecContext(nullptr)
 {
     Napi::Env env = info.Env();
 
@@ -389,7 +351,7 @@ Napi::Value AVFormatContextObject::ReadFrame(const Napi::CallbackInfo &info)
     napi_create_promise(env, &deferred, &promise);
 
     // Create and queue the AsyncWorker, passing the deferred handle
-    ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, this, codecContext, bsf, videoStreamIndex);
+    ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, this, codecContext, videoStreamIndex);
     worker->Queue();
 
     // Return the promise to JavaScript
@@ -570,6 +532,7 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
     ret = av_find_best_stream(fmt_ctx_, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, 0);
     if (ret < 0)
     {
+        avformat_close_input(&fmt_ctx_);
         Napi::Error::New(env, "Cannot find a video stream in the input file").ThrowAsJavaScriptException();
         return env.Null();
     }
@@ -577,6 +540,8 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
 
     if (videoStreamIndex == -1 || codec == nullptr)
     {
+        avformat_close_input(&fmt_ctx_);
+        avcodec_free_context(&codecContext);
         Napi::Error::New(env, "Failed to find a video stream or codec").ThrowAsJavaScriptException();
         return env.Null();
     }
@@ -584,35 +549,12 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
     // Open codec
     codecContext = avcodec_alloc_context3(codec);
     codecContext->opaque = this;
-    if (avcodec_open2(codecContext, codec, nullptr) < 0)
-    {
-        Napi::Error::New(env, "Failed to open codec").ThrowAsJavaScriptException();
-        return env.Null();
-    }
 
-    // streams may not provide extra data automatically before key frames, causing
-    // decoders to fail. this is a bit weird since presumably the decoder
-    // should prime the extra data from the AVCodecContext and AVCodec...
-    const AVBitStreamFilter *f = av_bsf_get_by_name("dump_extra");
-    if (!f)
+    if (avcodec_parameters_to_context(codecContext, fmt_ctx_->streams[videoStreamIndex]->codecpar) < 0)
     {
-        Napi::Error::New(env, "Failed to find bitstream filter").ThrowAsJavaScriptException();
-        return env.Null();
-    }
-
-    if (av_bsf_alloc(f, &bsf))
-    {
-        Napi::Error::New(env, "Failed to allocate bitstream filter").ThrowAsJavaScriptException();
-        return env.Null();
-    }
-    if (avcodec_parameters_copy(bsf->par_in, fmt_ctx_->streams[videoStreamIndex]->codecpar))
-    {
-        Napi::Error::New(env, "Failed to copy codec parameters").ThrowAsJavaScriptException();
-        return env.Null();
-    }
-    if (av_bsf_init(bsf))
-    {
-        Napi::Error::New(env, "Failed to initialize bitstream filter").ThrowAsJavaScriptException();
+        avformat_close_input(&fmt_ctx_);
+        avcodec_free_context(&codecContext);
+        Napi::Error::New(env, "Failed to copy codec parameters to codec context").ThrowAsJavaScriptException();
         return env.Null();
     }
 
@@ -621,6 +563,8 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
         enum AVHWDeviceType hw_device_value = av_hwdevice_find_type_by_name(decoder.c_str());
         if (hw_device_value == AV_HWDEVICE_TYPE_NONE)
         {
+            avformat_close_input(&fmt_ctx_);
+            avcodec_free_context(&codecContext);
             Napi::Error::New(env, "Invalid decoder").ThrowAsJavaScriptException();
             return env.Null();
         }
@@ -630,6 +574,8 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
             const AVCodecHWConfig *config = avcodec_get_hw_config(codec, i);
             if (!config)
             {
+                avformat_close_input(&fmt_ctx_);
+                avcodec_free_context(&codecContext);
                 Napi::Error::New(env, "Decoder does not support device type").ThrowAsJavaScriptException();
                 return Napi::String::New(env, "Decoder %s does not support device type");
             }
@@ -645,12 +591,22 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
         if ((ret = av_hwdevice_ctx_create(&hw_device_ctx, hw_device_value,
                                           NULL, NULL, 0)) < 0)
         {
+            avformat_close_input(&fmt_ctx_);
+            avcodec_free_context(&codecContext);
             Napi::Error::New(env, "Failed to create specified HW device").ThrowAsJavaScriptException();
             return env.Null();
         }
 
         codecContext->get_format = get_hw_format;
         codecContext->hw_device_ctx = hw_device_ctx;
+    }
+
+    if (avcodec_open2(codecContext, codec, nullptr) < 0)
+    {
+        avformat_close_input(&fmt_ctx_);
+        avcodec_free_context(&codecContext);
+        Napi::Error::New(env, "Failed to open codec").ThrowAsJavaScriptException();
+        return env.Null();
     }
 
     return Napi::Boolean::New(env, true);
@@ -662,11 +618,6 @@ AVFormatContextObject::~AVFormatContextObject()
 
 Napi::Value AVFormatContextObject::Close(const Napi::CallbackInfo &info)
 {
-    if (bsf)
-    {
-        av_bsf_free(&bsf);
-        bsf = nullptr;
-    }
     if (codecContext)
     {
         avcodec_free_context(&codecContext);
