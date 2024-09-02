@@ -134,7 +134,6 @@ public:
     AVFormatContext *fmt_ctx_;
     int videoStreamIndex;
     AVCodecContext *codecContext;
-    AVBufferRef *hw_frames_ctx;
     AVBSFContext *bsf;
 
 private:
@@ -182,10 +181,6 @@ public:
             {
                 // printf("returning frame 0\n");
                 av_packet_free(&packet);
-                if (!formatContextObject->hw_frames_ctx && frame->hw_frames_ctx)
-                {
-                    formatContextObject->hw_frames_ctx = av_buffer_ref(frame->hw_frames_ctx);
-                }
                 result = frame;
                 return;
             }
@@ -354,7 +349,6 @@ AVFormatContextObject::AVFormatContextObject(const Napi::CallbackInfo &info)
     : Napi::ObjectWrap<AVFormatContextObject>(info),
       videoStreamIndex(-1),
       codecContext(nullptr),
-      hw_frames_ctx(nullptr),
       bsf(nullptr)
 {
     Napi::Env env = info.Env();
@@ -514,9 +508,9 @@ Napi::Value AVFormatContextObject::CreateFilter(const Napi::CallbackInfo &info)
     }
 
     // 2. Create a hardware frame context from the device context
-    if (hw_frames_ctx)
+    if (codecContext->hw_frames_ctx)
     {
-        src_params->hw_frames_ctx = av_buffer_ref(hw_frames_ctx);
+        src_params->hw_frames_ctx = av_buffer_ref(codecContext->hw_frames_ctx);
     }
 
     ret = av_buffersrc_parameters_set(buffersrc_ctx, src_params);
@@ -677,11 +671,6 @@ Napi::Value AVFormatContextObject::Close(const Napi::CallbackInfo &info)
     {
         avcodec_free_context(&codecContext);
         codecContext = nullptr;
-    }
-    if (hw_frames_ctx)
-    {
-        av_buffer_unref(&hw_frames_ctx);
-        hw_frames_ctx = nullptr;
     }
     if (fmt_ctx_)
     {
