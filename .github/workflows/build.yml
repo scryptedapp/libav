@@ -20,7 +20,7 @@ jobs:
     strategy:
       matrix:
         # need older ubuntu for backwards compat with glibc.
-        os: [ubuntu-20.04, macos-latest, self-hosted-arm64]
+        os: [self-hosted-x86_64, macos-latest, self-hosted-arm64]
 
     runs-on: ${{ matrix.os }}
 
