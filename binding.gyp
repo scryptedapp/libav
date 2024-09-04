@@ -26,7 +26,7 @@
                                 "inputs": ["<(module_root_dir)/FFmpeg/configure"],
                                 "outputs": ["<(module_root_dir)/FFmpeg/ffmpeg"],
                                 "action": [
-                                    "sh",
+                                    "bash",
                                     "-c",
                                     "src/build-ffmpeg-darwin.sh",
                                 ],
@@ -54,7 +54,7 @@
                                 "inputs": ["<(module_root_dir)/FFmpeg/configure"],
                                 "outputs": ["<(module_root_dir)/FFmpeg/ffmpeg"],
                                 "action": [
-                                    "sh",
+                                    "bash",
                                     "-c",
                                     "src/build-ffmpeg-linux.sh",
                                 ],
