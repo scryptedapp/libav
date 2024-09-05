@@ -14,7 +14,7 @@ then
     popd
     echo "Building with NVIDIA GPU support"
     export PATH=/usr/local/cuda-12.4/bin:$PATH
-    ./configure --enable-nonfree --enable-cuda-nvcc --extra-cflags=-I/usr/local/cuda/include --extra-ldflags=-L/usr/local/cuda/lib64
+    ./configure --enable-vaapi --enable-nonfree --enable-cuda-nvcc --extra-cflags=-I/usr/local/cuda/include --extra-ldflags=-L/usr/local/cuda/lib64
 else
     ./configure --enable-vaapi
 fi
