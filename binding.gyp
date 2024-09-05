@@ -77,6 +77,17 @@
                         "ldflags": ["-Wl,-Bsymbolic"],
                     },
                 ],
+                [
+                    "OS=='linux' and target_arch=='x64'",
+                    {
+                        "libraries": [
+                            # vulkan
+                            "-lglslang",
+                            "-lglslang-default-resource-limits",
+                            "-lshaderc_combined",
+                        ]
+                    },
+                ],
             ],
             "cflags": ["-std=c++17"],
             "defines": ["NAPI_DISABLE_CPP_EXCEPTIONS"],
