@@ -12,7 +12,7 @@ then
     cd nv-codec-headers
     sudo make install
     popd
-    echo "Building with NVIDIA GPU support"
+    echo "Building with NVIDIA GPU and Vulkan support"
     export PATH=/usr/local/cuda-12.4/bin:$PATH
     ./configure --enable-vaapi --enable-libglslang --enable-nonfree --enable-cuda-nvcc --extra-cflags=-I/usr/local/cuda/include --extra-ldflags=-L/usr/local/cuda/lib64
 else
