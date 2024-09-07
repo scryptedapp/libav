@@ -36,7 +36,7 @@ jobs:
         python-version: '3.10'
       # this action does not have 3.10 available for linux arm64 (or any version at time of checking).
       # https://raw.githubusercontent.com/actions/python-versions/main/versions-manifest.json
-      if: ${{ matrix.os != 'self-hosted-arm64' }}
+      if: ${{ matrix.os == 'macos-latest' }}
 
     - name: Use Node.js 20.x
       uses: actions/setup-node@v1
