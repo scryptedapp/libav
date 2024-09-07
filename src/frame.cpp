@@ -118,7 +118,8 @@ Napi::Value AVFrameObject::ToJPEG(const Napi::CallbackInfo &info)
     c->width = frame_->width;
     c->height = frame_->height;
     c->pix_fmt = (enum AVPixelFormat)frame_->format;
-    c->time_base = (AVRational){1, 25};
+    c->time_base.num = 1;
+    c->time_base.den = 25;
 
     // Set the JPEG quality
     int quality = info[0].As<Napi::Number>().Int32Value(); // 1-31, lower is better quality

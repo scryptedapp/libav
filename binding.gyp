@@ -16,7 +16,72 @@
                     "Security",
                 ],
             },
+                 'configurations': {
+            'Debug': {
+                'msvs_settings': {
+                           "VCLinkerTool": {
+          "AdditionalOptions": [
+            "/NODEFAULTLIB:libcmt.lib"
+          ]
+        },
+                            'VCCLCompilerTool': {
+                                'RuntimeLibrary': '3' # /MDd
+                    },
+                },
+            },
+            'Release': {
+                'msvs_settings': {
+                    "VCLinkerTool": {
+          "AdditionalOptions": [
+            "/NODEFAULTLIB:libcmt.lib"
+          ]
+        },
+                            'VCCLCompilerTool': {
+                                'RuntimeLibrary': '2' # /MD
+                    },
+                },
+            },
+        },
             "conditions": [
+                [
+                    "OS=='win'",
+                    {
+                        # "actions": [
+                        #     {
+                        #         "action_name": "ffmpeg configure",
+                        #         "inputs": ["<(module_root_dir)/FFmpeg/configure"],
+                        #         "outputs": ["<(module_root_dir)/FFmpeg/ffmpeg"],
+                        #         "action": [
+                        #             "bash",
+                        #             "-c",
+                        #             "src/build-ffmpeg-darwin.sh",
+                        #         ],
+                        #     },
+                        # ],
+                        "include_dirs": [
+                            "<!@(node -p \"require('node-addon-api').include\")",
+                            "<(module_root_dir)/FFmpeg",
+                        ],
+                        "libraries": [
+                            "<(module_root_dir)/FFmpeg/libavcodec/libavcodec.a",
+                            "<(module_root_dir)/FFmpeg/libavfilter/libavfilter.a",
+                            "<(module_root_dir)/FFmpeg/libavformat/libavformat.a",
+                            "<(module_root_dir)/FFmpeg/libavutil/libavutil.a",
+                            "<(module_root_dir)/FFmpeg/libswscale/libswscale.a",
+                            "<(module_root_dir)/FFmpeg/libswresample/libswresample.a",
+
+                            "<(module_root_dir)/../work/_vplinstall/lib/vpl.lib",
+                            "Ws2_32.lib",
+                            # "crypt32.lib",
+                            "mf.lib",
+                            "Mfplat.lib",
+                            "Mfuuid.lib",
+                            "strmiids.lib",
+                            "secur32.lib",
+                            "bcrypt.lib",
+                        ],
+                    },
+                ],
                 [
                     "OS=='mac'",
                     {
