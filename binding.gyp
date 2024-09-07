@@ -50,7 +50,7 @@
                             {
                                 "action_name": "ffmpeg configure",
                                 "inputs": ["<(module_root_dir)/FFmpeg/configure"],
-                                "outputs": ["<(module_root_dir)/FFmpeg/ffmpeg"],
+                                "outputs": ["<(module_root_dir)/FFmpeg/ffmpeg.exe"],
                                 "action": [
                                     "cmd.exe",
                                     "/c",
