@@ -46,18 +46,18 @@
                 [
                     "OS=='win'",
                     {
-                        # "actions": [
-                        #     {
-                        #         "action_name": "ffmpeg configure",
-                        #         "inputs": ["<(module_root_dir)/FFmpeg/configure"],
-                        #         "outputs": ["<(module_root_dir)/FFmpeg/ffmpeg"],
-                        #         "action": [
-                        #             "bash",
-                        #             "-c",
-                        #             "src/build-ffmpeg-darwin.sh",
-                        #         ],
-                        #     },
-                        # ],
+                        "actions": [
+                            {
+                                "action_name": "ffmpeg configure",
+                                "inputs": ["<(module_root_dir)/FFmpeg/configure"],
+                                "outputs": ["<(module_root_dir)/FFmpeg/ffmpeg"],
+                                "action": [
+                                    "cmd.exe",
+                                    "/c",
+                                    "src/build-ffmpeg-windows.bat",
+                                ],
+                            },
+                        ],
                         "include_dirs": [
                             "<!@(node -p \"require('node-addon-api').include\")",
                             "<(module_root_dir)/FFmpeg",
