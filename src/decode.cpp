@@ -591,6 +591,7 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
             }
             else {
                 Napi::Error::New(env, "Unknown qsv codec").ThrowAsJavaScriptException();
+                return env.Null();
             }
             hw_pix_fmt = AV_PIX_FMT_QSV;
             avcodec_free_context(&codecContext);
