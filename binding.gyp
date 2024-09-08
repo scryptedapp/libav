@@ -70,9 +70,8 @@
                             "<(module_root_dir)/FFmpeg/libswscale/libswscale.a",
                             "<(module_root_dir)/FFmpeg/libswresample/libswresample.a",
 
-                            "<(module_root_dir)/../work/_vplinstall/lib/vpl.lib",
+                            "<(module_root_dir)/_vplinstall/lib/vpl.lib",
                             "Ws2_32.lib",
-                            # "crypt32.lib",
                             "mf.lib",
                             "Mfplat.lib",
                             "Mfuuid.lib",
