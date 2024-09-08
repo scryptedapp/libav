@@ -581,21 +581,39 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
             return env.Null();
         }
 
-        for (int i = 0;; i++)
+        if (hw_device_value == AV_HWDEVICE_TYPE_QSV)
         {
-            const AVCodecHWConfig *config = avcodec_get_hw_config(codec, i);
-            if (!config)
-            {
-                avformat_close_input(&fmt_ctx_);
-                avcodec_free_context(&codecContext);
-                Napi::Error::New(env, "Decoder does not support device type").ThrowAsJavaScriptException();
-                return Napi::String::New(env, "Decoder %s does not support device type");
+            if (codec->id == AV_CODEC_ID_H264) {
+                codec = avcodec_find_decoder_by_name("h264_qsv");
             }
-            if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX &&
-                config->device_type == hw_device_value)
+            else if (codec->id == AV_CODEC_ID_HEVC) {
+                codec = avcodec_find_decoder_by_name("hevc_qsv");
+            }
+            else {
+                Napi::Error::New(env, "Unknown qsv codec").ThrowAsJavaScriptException();
+            }
+            hw_pix_fmt = AV_PIX_FMT_QSV;
+            avcodec_free_context(&codecContext);
+            codecContext = avcodec_alloc_context3(codec);
+            codecContext->opaque = this;
+        }
+        else {
+            for (int i = 0;; i++)
             {
-                hw_pix_fmt = config->pix_fmt;
-                break;
+                const AVCodecHWConfig *config = avcodec_get_hw_config(codec, i);
+                if (!config)
+                {
+                    avformat_close_input(&fmt_ctx_);
+                    avcodec_free_context(&codecContext);
+                    Napi::Error::New(env, "Decoder does not support device type").ThrowAsJavaScriptException();
+                    return env.Null();
+                }
+                if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX &&
+                    config->device_type == hw_device_value)
+                {
+                    hw_pix_fmt = config->pix_fmt;
+                    break;
+                }
             }
         }
 
