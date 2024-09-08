@@ -3,3 +3,5 @@ FFmpeg
 .github
 test
 .gitmodules
+libvpl
+nv-codec-headers
