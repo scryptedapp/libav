@@ -134,7 +134,6 @@
                             "<(module_root_dir)/FFmpeg/libavformat/libavformat.a",
                             "<(module_root_dir)/FFmpeg/libavutil/libavutil.a",
                             "<(module_root_dir)/FFmpeg/libswscale/libswscale.a",
-                            "<(module_root_dir)/_vplinstall/lib/libvpl.a",
                             "-ldrm",
                             "-lva",
                             "-lva-drm",
@@ -146,6 +145,8 @@
                     "OS=='linux' and target_arch=='x64'",
                     {
                         "libraries": [
+                            # vpl
+                            "<(module_root_dir)/_vplinstall/lib/libvpl.a",
                             # vulkan
                             "-lglslang",
                             "-lglslang-default-resource-limits",
