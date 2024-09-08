@@ -6,7 +6,7 @@ sudo apt -y install libva-dev libdrm-dev yasm
 ARCH=$(arch)
 if [ "$ARCH" = "x86_64" ]
 then
-    pushd $(dirname $0)/../nv-codec-headers
+    pushd ../nv-codec-headers
     sudo make install
     popd
     echo "Building with NVIDIA GPU and Vulkan support"
