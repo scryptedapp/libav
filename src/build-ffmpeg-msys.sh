@@ -1,12 +1,19 @@
-cd $(dirname $0)/../nv-codec-headers
+cd $(dirname $0)
+
+cd ../nv-codec-headers
 make install PREFIX=../_nvinstall
 
-cd $(dirname $0)/../FFmpeg
+cd ../libvpl
+export VPL_INSTALL_DIR=$PWD/../_vplinstall
+cmake -B _build -DCMAKE_INSTALL_PREFIX=$VPL_INSTALL_DIR -DBUILD_SHARED_LIBS=OFF -DUSE_MSVC_STATIC_RUNTIME=ON -DMINGW_LIBS="-ladvapi32 -lmsvcrt -lole32"
+cmake --build _build --config Release
+cmake --install _build --config Release
+
+cd ../FFmpeg
 pacman --noconfirm -S yasm pkg-config clang diffutils make
 export PKG_CONFIG_PATH=$PWD/../_vplinstall/lib/pkgconfig:$PWD/../_nvinstall/lib/pkgconfig:$PKG_CONFIG_PATH
 
 # the --enable-nvdec is necessary for build sanity checking, the build will configure
 # successfully if nvidia stuff is missing, even though it is required for --enable-cuda-llvm
-./configure --enable-libvpl --enable-cuda-llvm --enable-nvdec --toolchain=msvc
-make -j32
+./configure --enable-libvpl --enable-cuda-llvm --enable-nvdec --toolchain=msvc && make -j32
 exit $?
