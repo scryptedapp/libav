@@ -134,6 +134,7 @@
                             "<(module_root_dir)/FFmpeg/libavformat/libavformat.a",
                             "<(module_root_dir)/FFmpeg/libavutil/libavutil.a",
                             "<(module_root_dir)/FFmpeg/libswscale/libswscale.a",
+                            "<(module_root_dir)/_vplinstall/lib/libvpl.a",
                             "-ldrm",
                             "-lva",
                             "-lva-drm",
