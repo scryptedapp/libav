@@ -132,3 +132,4 @@ export function getBinaryUrl() {
     return url;
 }
 
+export const version: string = packageJson.version;
