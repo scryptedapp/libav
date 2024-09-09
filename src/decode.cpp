@@ -314,10 +314,12 @@ Napi::Object AVFormatContextObject::Init(Napi::Env env, Napi::Object exports)
 
 AVFormatContextObject::AVFormatContextObject(const Napi::CallbackInfo &info)
     : Napi::ObjectWrap<AVFormatContextObject>(info),
+      fmt_ctx_(nullptr),
       videoStreamIndex(-1),
       codecContext(nullptr),
       hw_device_value(AV_HWDEVICE_TYPE_NONE)
 {
+    // i don't think this constructor is called from js??
     Napi::Env env = info.Env();
 
     if (info.Length() > 0 && info[0].IsBigInt())
@@ -512,14 +514,35 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
     Napi::Env env = info.Env();
     if (info.Length() < 1 || !info[0].IsString())
     {
-        Napi::TypeError::New(env, "String expected").ThrowAsJavaScriptException();
+        Napi::TypeError::New(env, "String source expected").ThrowAsJavaScriptException();
         return env.Null();
     }
 
-    std::string decoder;
-    if (info.Length() > 1 && info[1].IsString())
+    if (info.Length() < 2)
     {
-        decoder = info[1].As<Napi::String>().Utf8Value();
+        Napi::Error::New(env, "Decoder Array expected").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    if (!info[1].IsArray())
+    {
+        Napi::Error::New(env, "Unexpected type in place of Decoder Array").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    Napi::Array array = info[1].As<Napi::Array>();
+    std::vector<std::string> hardwareDevices;
+    for (uint32_t i = 0; i < array.Length(); ++i)
+    {
+        if (array.Get(i).IsString())
+        {
+            hardwareDevices.push_back(array.Get(i).As<Napi::String>().Utf8Value());
+        }
+        else
+        {
+            Napi::Error::New(env, "Decoder String expected").ThrowAsJavaScriptException();
+            return env.Null();
+        }
     }
 
     AVDictionary *options = nullptr;
@@ -554,39 +577,18 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
     // Open codec
     codecContext = avcodec_alloc_context3(codec);
     codecContext->opaque = this;
+    hw_device_value = AV_HWDEVICE_TYPE_NONE;
 
-    if (avcodec_parameters_to_context(codecContext, fmt_ctx_->streams[videoStreamIndex]->codecpar) < 0)
+    for (const std::string &hardwareDeviceName : hardwareDevices)
     {
-        avformat_close_input(&fmt_ctx_);
-        avcodec_free_context(&codecContext);
-        Napi::Error::New(env, "Failed to copy codec parameters to codec context").ThrowAsJavaScriptException();
-        return env.Null();
-    }
-
-    if (decoder.length())
-    {
-        enum AVHWDeviceType iter = AV_HWDEVICE_TYPE_NONE;
-        fprintf(stderr, "Available HW Devices:\n");
-        while (true)
+        enum AVHWDeviceType try_hw_device_value = av_hwdevice_find_type_by_name(hardwareDeviceName.c_str());
+        if (try_hw_device_value == AV_HWDEVICE_TYPE_NONE)
         {
-            iter = av_hwdevice_iterate_types(iter);
-            if (iter == AV_HWDEVICE_TYPE_NONE)
-            {
-                break;
-            }
-            fprintf(stderr, "HW Device: %s\n", av_hwdevice_get_type_name(iter));
+            fprintf(stderr, "Decoder %s not found\n", hardwareDeviceName.c_str());
+            continue;
         }
 
-        hw_device_value = av_hwdevice_find_type_by_name(decoder.c_str());
-        if (hw_device_value == AV_HWDEVICE_TYPE_NONE)
-        {
-            avformat_close_input(&fmt_ctx_);
-            avcodec_free_context(&codecContext);
-            Napi::Error::New(env, "Invalid decoder").ThrowAsJavaScriptException();
-            return env.Null();
-        }
-
-        if (hw_device_value == AV_HWDEVICE_TYPE_QSV)
+        if (try_hw_device_value == AV_HWDEVICE_TYPE_QSV)
         {
             if (codec->id == AV_CODEC_ID_H264)
             {
@@ -598,8 +600,8 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
             }
             else
             {
-                Napi::Error::New(env, "Unknown qsv codec").ThrowAsJavaScriptException();
-                return env.Null();
+                fprintf(stderr, "Unknown qsv codec %s\n", avcodec_get_name(codec->id));
+                continue;
             }
             hw_pix_fmt = AV_PIX_FMT_QSV;
             avcodec_free_context(&codecContext);
@@ -608,37 +610,76 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
         }
         else
         {
+            bool found = false;
             for (int i = 0;; i++)
             {
                 const AVCodecHWConfig *config = avcodec_get_hw_config(codec, i);
                 if (!config)
                 {
-                    avformat_close_input(&fmt_ctx_);
-                    avcodec_free_context(&codecContext);
-                    Napi::Error::New(env, "Decoder does not support device type").ThrowAsJavaScriptException();
-                    return env.Null();
+                    found = false;
+                    fprintf(stderr, "Decoder %s does not support device type\n", hardwareDeviceName.c_str());
+                    break;
                 }
                 if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX &&
-                    config->device_type == hw_device_value)
+                    config->device_type == try_hw_device_value)
                 {
+                    found = true;
                     hw_pix_fmt = config->pix_fmt;
                     break;
                 }
             }
+
+            if (!found)
+            {
+                continue;
+            }
         }
 
         AVBufferRef *hw_device_ctx = nullptr;
-        if ((ret = av_hwdevice_ctx_create(&hw_device_ctx, hw_device_value,
+        if ((ret = av_hwdevice_ctx_create(&hw_device_ctx, try_hw_device_value,
                                           NULL, NULL, 0)) < 0)
+        {
+            fprintf(stderr, "Failed to create specified HW device for %s\n", hardwareDeviceName.c_str());
+            avcodec_free_context(&codecContext);
+            codecContext = avcodec_alloc_context3(codec);
+            codecContext->opaque = this;
+            continue;
+        }
+
+        hw_device_value = try_hw_device_value;
+        codecContext->get_format = get_hw_format;
+        codecContext->hw_device_ctx = hw_device_ctx;
+
+        if (avcodec_parameters_to_context(codecContext, fmt_ctx_->streams[videoStreamIndex]->codecpar) < 0)
         {
             avformat_close_input(&fmt_ctx_);
             avcodec_free_context(&codecContext);
-            Napi::Error::New(env, "Failed to create specified HW device").ThrowAsJavaScriptException();
+            Napi::Error::New(env, "Failed to copy codec parameters to codec context").ThrowAsJavaScriptException();
             return env.Null();
         }
 
-        codecContext->get_format = get_hw_format;
-        codecContext->hw_device_ctx = hw_device_ctx;
+        if (avcodec_open2(codecContext, codec, nullptr) < 0)
+        {
+            fprintf(stderr, "Failed to open codec context %s\n", hardwareDeviceName.c_str());
+            // avformat_close_input(&fmt_ctx_);
+            avcodec_free_context(&codecContext);
+            codecContext = avcodec_alloc_context3(codec);
+            codecContext->opaque = this;
+            hw_device_value = AV_HWDEVICE_TYPE_NONE;
+            continue;
+        }
+
+        fprintf(stderr, "Opened codec context %s\n", hardwareDeviceName.c_str());
+
+        return Napi::Boolean::New(env, true);
+    }
+
+    if (avcodec_parameters_to_context(codecContext, fmt_ctx_->streams[videoStreamIndex]->codecpar) < 0)
+    {
+        avformat_close_input(&fmt_ctx_);
+        avcodec_free_context(&codecContext);
+        Napi::Error::New(env, "Failed to copy codec parameters to codec context").ThrowAsJavaScriptException();
+        return env.Null();
     }
 
     if (avcodec_open2(codecContext, codec, nullptr) < 0)

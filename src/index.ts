@@ -73,7 +73,7 @@ export interface AVFilter {
 }
 
 export interface AVFormatContext {
-    open(input: string, codec: string): void;
+    open(input: string, hardwareDevices: string[]): void;
     readFrame(): Promise<AVFrame>;
     createFilter(width: number, height: number, filter: string, useHardware: boolean): AVFilter;
     close(): void;
