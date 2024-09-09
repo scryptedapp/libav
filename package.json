@@ -2,8 +2,10 @@
   "name": "@scrypted/libav",
   "version": "1.0.69",
   "dependencies": {
+    "detect-libc": "^2.0.3",
+    "follow-redirects": "^1.15.9",
     "node-addon-api": "^8.1.0",
-    "prebuild-install": "npm:@scrypted/prebuild-install@^7.1.9"
+    "tar": "^7.4.3"
   },
   "repository": {
     "type": "git",
@@ -35,9 +37,12 @@
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
+    "@types/follow-redirects": "^1.14.4",
     "@types/node": "^22.5.4",
     "node-gyp": "^10.2.0",
     "prebuild": "^13.0.1",
+    "prebuild-install": "npm:@scrypted/prebuild-install@^7.1.9",
+    "ts-node": "^10.9.2",
     "typescript": "^5.5.4"
   }
 }

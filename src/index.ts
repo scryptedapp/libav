@@ -1,5 +1,10 @@
+import detectLibc from 'detect-libc';
+import { once } from 'events';
+import { https } from 'follow-redirects';
+import fs from 'fs';
 import path from 'path';
-import { fork } from 'child_process';
+import { x as tarx } from 'tar';
+import packageJson from '../package.json';
 
 let addon: any;
 try {
@@ -12,45 +17,60 @@ export function isInstalled() {
     return !!addon;
 }
 
-export function loadAddon(addonPath: string) {
-    addon = require(addonPath);
+export function loadAddon(addonPath: string, nr: NodeRequire = require) {
+    addon = nr(addonPath);
 }
 
 let installing: Promise<void> | undefined;
-export async function install() {
+export async function install(installPath?: string, nr: NodeRequire = require) {
     if (addon)
         return;
 
     if (installing)
         return installing;
 
-    installing = new Promise<void>((resolve, reject) => {
-        const cp = fork(require.resolve('prebuild-install/bin.js'), {
-            cwd: path.dirname(__dirname),
-        });
+    const addonPath = path.join(installPath || '', 'build/Release/addon');
+    try {
+        loadAddon(addonPath, nr);
+        return;
+    }
+    catch (e) {
+    }
 
-        cp.on('error', reject);
-
-        cp.on('exit', (code) => {
-            if (code === 0) {
-                try {
-                    addon = require('../build/Release/addon');
-                    resolve();
-                }
-                catch (e) {
-                    reject(e);
-                }
-            }
-            else {
-                reject(new Error('Failed to install'));
-            }
+    installing = (async () => {
+        await downloadAddon(installPath);
+        loadAddon(addonPath, nr);
+    })()
+        .finally(() => {
+            installing = undefined;
         });
-    })
-    .finally(() => {
-        installing = undefined;
-    });
 
     return installing;
+}
+
+export async function downloadAddon(installPath?: string) {
+    const cwd = installPath || process.cwd();
+    await fs.promises.mkdir(cwd, { recursive: true });
+    const buildPath = path.join(cwd, 'build');
+    const extractPath = path.join(cwd, '.extract');
+    try {
+        await fs.promises.rm(extractPath, { recursive: true, force: true });
+    }
+    catch (e) {
+        const oldExtractPath = path.join(cwd, '.extract-old');
+        fs.promises.rm(oldExtractPath, { recursive: true, force: true });
+        await fs.promises.rename(extractPath, oldExtractPath);
+    }
+    await fs.promises.mkdir(extractPath, { recursive: true });
+    await fs.promises.rm(buildPath, { recursive: true, force: true });
+    const binaryUrl = getBinaryUrl();
+    const r = https.get(binaryUrl);
+    const [response] = await once(r, 'response');
+    const t = response.pipe(tarx({
+        cwd: extractPath,
+    }));
+    await once(t, 'end');
+    await fs.promises.rename(path.join(extractPath, 'build'), buildPath);
 }
 
 export interface AVFrame {
@@ -94,3 +114,21 @@ export function setAVLogLevel(level: 'quiet' | 'panic' | 'fatal' | 'error' | 'wa
 export function createAVFormatContext(): AVFormatContext {
     return new addon.AVFormatContext();
 }
+
+export function getBinaryUrl() {
+    const libc = process.env.LIBC || process.env.npm_config_libc ||
+        (detectLibc.isNonGlibcLinuxSync() && detectLibc.familySync()) || ''
+
+    const { name, version } = packageJson;
+    const binaryName = name.replace(/^@[a-zA-Z0-9_\-.~]+\//, '')
+
+    const abi = process.versions.modules;
+    const runtime = process.env.npm_config_runtime || 'node';
+    const { platform, arch } = process;
+    const packageName = `${binaryName}-v${version}-${runtime}-v${abi}-${platform}${libc}-${arch}.tar.gz`;
+
+    const url = `https://github.com/scryptedapp/libav/releases/download/v${version}/${packageName}`;
+
+    return url;
+}
+
