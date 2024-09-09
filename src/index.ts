@@ -77,6 +77,10 @@ export interface AVFormatContext {
     readFrame(): Promise<AVFrame>;
     createFilter(width: number, height: number, filter: string, useHardware: boolean): AVFilter;
     close(): void;
+
+    readonly hardwareDevice: string;
+    readonly pointer: bigint;
+    readonly metadata: any;
 }
 
 export function setAVLogCallback(callback: (msg: string, level: number) => void) {

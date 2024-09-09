@@ -133,12 +133,14 @@ public:
     AVFormatContext *fmt_ctx_;
     int videoStreamIndex;
     AVCodecContext *codecContext;
+    enum AVHWDeviceType hw_device_value;
 
 private:
     Napi::Value Open(const Napi::CallbackInfo &info);
     Napi::Value Close(const Napi::CallbackInfo &info);
     Napi::Value GetMetadata(const Napi::CallbackInfo &info);
     Napi::Value GetPointer(const Napi::CallbackInfo &info);
+    Napi::Value GetHardwareDevice(const Napi::CallbackInfo &info);
     Napi::Value ReadFrame(const Napi::CallbackInfo &info);
     Napi::Value CreateFilter(const Napi::CallbackInfo &info);
 };
@@ -292,9 +294,11 @@ Napi::Object AVFormatContextObject::Init(Napi::Env env, Napi::Object exports)
 
                                                                   InstanceMethod("close", &AVFormatContextObject::Close),
 
-                                                                  InstanceMethod("getMetadata", &AVFormatContextObject::GetMetadata),
+                                                                  AVFormatContextObject::InstanceAccessor("metadata", &AVFormatContextObject::GetMetadata, nullptr),
 
-                                                                  InstanceMethod("getPointer", &AVFormatContextObject::GetPointer),
+                                                                  AVFormatContextObject::InstanceAccessor("pointer", &AVFormatContextObject::GetPointer, nullptr),
+
+                                                                  AVFormatContextObject::InstanceAccessor("hardwareDevice", &AVFormatContextObject::GetHardwareDevice, nullptr),
 
                                                                   InstanceMethod("readFrame", &AVFormatContextObject::ReadFrame),
 
@@ -311,7 +315,8 @@ Napi::Object AVFormatContextObject::Init(Napi::Env env, Napi::Object exports)
 AVFormatContextObject::AVFormatContextObject(const Napi::CallbackInfo &info)
     : Napi::ObjectWrap<AVFormatContextObject>(info),
       videoStreamIndex(-1),
-      codecContext(nullptr)
+      codecContext(nullptr),
+      hw_device_value(AV_HWDEVICE_TYPE_NONE)
 {
     Napi::Env env = info.Env();
 
@@ -572,7 +577,7 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
             fprintf(stderr, "HW Device: %s\n", av_hwdevice_get_type_name(iter));
         }
 
-        enum AVHWDeviceType hw_device_value = av_hwdevice_find_type_by_name(decoder.c_str());
+        hw_device_value = av_hwdevice_find_type_by_name(decoder.c_str());
         if (hw_device_value == AV_HWDEVICE_TYPE_NONE)
         {
             avformat_close_input(&fmt_ctx_);
@@ -583,13 +588,16 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
 
         if (hw_device_value == AV_HWDEVICE_TYPE_QSV)
         {
-            if (codec->id == AV_CODEC_ID_H264) {
+            if (codec->id == AV_CODEC_ID_H264)
+            {
                 codec = avcodec_find_decoder_by_name("h264_qsv");
             }
-            else if (codec->id == AV_CODEC_ID_HEVC) {
+            else if (codec->id == AV_CODEC_ID_HEVC)
+            {
                 codec = avcodec_find_decoder_by_name("hevc_qsv");
             }
-            else {
+            else
+            {
                 Napi::Error::New(env, "Unknown qsv codec").ThrowAsJavaScriptException();
                 return env.Null();
             }
@@ -598,7 +606,8 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
             codecContext = avcodec_alloc_context3(codec);
             codecContext->opaque = this;
         }
-        else {
+        else
+        {
             for (int i = 0;; i++)
             {
                 const AVCodecHWConfig *config = avcodec_get_hw_config(codec, i);
@@ -686,6 +695,17 @@ Napi::Value AVFormatContextObject::GetPointer(const Napi::CallbackInfo &info)
 {
     Napi::Env env = info.Env();
     return Napi::BigInt::New(env, reinterpret_cast<uint64_t>(fmt_ctx_));
+}
+
+Napi::Value AVFormatContextObject::GetHardwareDevice(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+    const char *hardwareDeviceName = av_hwdevice_get_type_name(hw_device_value);
+    if (hw_device_value == AV_HWDEVICE_TYPE_NONE || !hardwareDeviceName)
+    {
+        return info.Env().Undefined();
+    }
+    return Napi::String::New(env, hardwareDeviceName);
 }
 
 Napi::Object Init(Napi::Env env, Napi::Object exports)
