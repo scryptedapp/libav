@@ -64,7 +64,9 @@ export async function downloadAddon(installPath?: string) {
     await fs.promises.mkdir(extractPath, { recursive: true });
     await fs.promises.rm(buildPath, { recursive: true, force: true });
     const binaryUrl = getBinaryUrl();
-    const r = https.get(binaryUrl);
+    const r = https.get(binaryUrl, {
+        family: 4,
+    });
     const [response] = await once(r, 'response');
     const t = response.pipe(tarx({
         cwd: extractPath,
