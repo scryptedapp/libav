@@ -1,7 +1,7 @@
 DEBIAN_FRONTEND=noninteractive
 cd $(dirname $0)/../FFmpeg
 sudo apt -y update
-sudo apt -y install libva-dev libdrm-dev yasm cmake
+sudo apt -y install libva-dev libdrm-dev yasm cmake ocl-icd-opencl-dev
 
 ARCH=$(arch)
 if [ "$ARCH" = "x86_64" ]
