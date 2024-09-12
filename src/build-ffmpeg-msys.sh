@@ -15,5 +15,6 @@ export PKG_CONFIG_PATH=$PWD/../_vplinstall/lib/pkgconfig:$PWD/../_nvinstall/lib/
 
 # the --enable-nvdec is necessary for build sanity checking, the build will configure
 # successfully if nvidia stuff is missing, even though it is required for --enable-cuda-llvm
-./configure --enable-libvpl --enable-cuda-llvm --enable-nvdec --enable-opencl --toolchain=msvc && make -j32
+# no open cl yet, need to do this https://github.com/m-ab-s/media-autobuild_suite/issues/1301#issuecomment-627800902
+./configure --enable-libvpl --enable-cuda-llvm --enable-nvdec --toolchain=msvc && make -j32
 exit $?
