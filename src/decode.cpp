@@ -558,6 +558,7 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
 
     /* find the video stream information */
     ret = av_find_best_stream(fmt_ctx_, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, 0);
+    const struct AVCodec *originalCodec = codec;
     if (ret < 0)
     {
         avformat_close_input(&fmt_ctx_);
@@ -575,12 +576,18 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
     }
 
     // Open codec
-    codecContext = avcodec_alloc_context3(codec);
-    codecContext->opaque = this;
+    codecContext = nullptr;
     hw_device_value = AV_HWDEVICE_TYPE_NONE;
 
     for (const std::string &hardwareDeviceName : hardwareDevices)
     {
+        codec = originalCodec;
+        if (!codecContext)
+        {
+            codecContext = avcodec_alloc_context3(codec);
+            codecContext->opaque = this;
+        }
+
         enum AVHWDeviceType try_hw_device_value = av_hwdevice_find_type_by_name(hardwareDeviceName.c_str());
         if (try_hw_device_value == AV_HWDEVICE_TYPE_NONE)
         {
@@ -640,13 +647,14 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
                                           NULL, NULL, 0)) < 0)
         {
             fprintf(stderr, "Failed to create specified HW device for %s\n", hardwareDeviceName.c_str());
-            avcodec_free_context(&codecContext);
-            codecContext = avcodec_alloc_context3(codec);
-            codecContext->opaque = this;
+            // qsv rollback
+            if (codec != originalCodec) {
+                avcodec_free_context(&codecContext);
+                codecContext = nullptr;
+            }
             continue;
         }
 
-        hw_device_value = try_hw_device_value;
         codecContext->get_format = get_hw_format;
         codecContext->hw_device_ctx = hw_device_ctx;
 
@@ -654,8 +662,8 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
         {
             avformat_close_input(&fmt_ctx_);
             avcodec_free_context(&codecContext);
-            Napi::Error::New(env, "Failed to copy codec parameters to codec context").ThrowAsJavaScriptException();
-            return env.Null();
+            codecContext = nullptr;
+            continue;
         }
 
         if (avcodec_open2(codecContext, codec, nullptr) < 0)
@@ -663,15 +671,20 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
             fprintf(stderr, "Failed to open codec context %s\n", hardwareDeviceName.c_str());
             // avformat_close_input(&fmt_ctx_);
             avcodec_free_context(&codecContext);
-            codecContext = avcodec_alloc_context3(codec);
-            codecContext->opaque = this;
-            hw_device_value = AV_HWDEVICE_TYPE_NONE;
+            codecContext = nullptr;
             continue;
         }
 
+        hw_device_value = try_hw_device_value;
         fprintf(stderr, "Opened codec context %s\n", hardwareDeviceName.c_str());
 
         return Napi::Boolean::New(env, true);
+    }
+
+    if (!codecContext)
+    {
+        codecContext = avcodec_alloc_context3(codec);
+        codecContext->opaque = this;
     }
 
     if (avcodec_parameters_to_context(codecContext, fmt_ctx_->streams[videoStreamIndex]->codecpar) < 0)
