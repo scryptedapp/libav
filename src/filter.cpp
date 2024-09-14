@@ -43,8 +43,7 @@ Napi::Object AVFilterGraphObject::Init(Napi::Env env, Napi::Object exports)
 
                                                                       InstanceMethod("filter", &AVFilterGraphObject::Filter),
 
-                                                                      InstanceMethod("setCrop", &AVFilterGraphObject::SetCrop)
-                                                                  });
+                                                                      InstanceMethod("setCrop", &AVFilterGraphObject::SetCrop)});
 
     constructor = Napi::Persistent(func);
     constructor.SuppressDestruct();
@@ -75,7 +74,8 @@ Napi::Value AVFilterGraphObject::Destroy(const Napi::CallbackInfo &info)
     return info.Env().Undefined();
 }
 
-Napi::Value AVFilterGraphObject::SetCrop(const Napi::CallbackInfo &info) {
+Napi::Value AVFilterGraphObject::SetCrop(const Napi::CallbackInfo &info)
+{
     // need four arguments
     if (info.Length() < 4)
     {
@@ -95,23 +95,40 @@ Napi::Value AVFilterGraphObject::SetCrop(const Napi::CallbackInfo &info) {
     std::string width = info[2].As<Napi::String>().Utf8Value();
     std::string height = info[3].As<Napi::String>().Utf8Value();
 
-    if (avfilter_graph_send_command(filterGraph, "crop", "x", left.c_str(), 0, 0, 0) < 0) {
+    // reset the x and y to zero so all widths and heights may be valid.
+    if (avfilter_graph_send_command(filterGraph, "crop", "x", "0", 0, 0, 0) < 0)
+    {
         Napi::Error::New(info.Env(), "Error while sending crop command (x)").ThrowAsJavaScriptException();
         return info.Env().Undefined();
     }
 
-    if (avfilter_graph_send_command(filterGraph, "crop", "y", top.c_str(), 0, 0, 0) < 0) {
+    if (avfilter_graph_send_command(filterGraph, "crop", "y", "0", 0, 0, 0) < 0)
+    {
         Napi::Error::New(info.Env(), "Error while sending crop command (y)").ThrowAsJavaScriptException();
         return info.Env().Undefined();
     }
 
-    if (avfilter_graph_send_command(filterGraph, "crop", "w", width.c_str(), 0, 0, 0) < 0) {
+    if (avfilter_graph_send_command(filterGraph, "crop", "w", width.c_str(), 0, 0, 0) < 0)
+    {
         Napi::Error::New(info.Env(), "Error while sending crop command (w)").ThrowAsJavaScriptException();
         return info.Env().Undefined();
     }
 
-    if (avfilter_graph_send_command(filterGraph, "crop", "h", height.c_str(), 0, 0, 0) < 0) {
+    if (avfilter_graph_send_command(filterGraph, "crop", "h", height.c_str(), 0, 0, 0) < 0)
+    {
         Napi::Error::New(info.Env(), "Error while sending crop command (h)").ThrowAsJavaScriptException();
+        return info.Env().Undefined();
+    }
+
+    if (avfilter_graph_send_command(filterGraph, "crop", "x", left.c_str(), 0, 0, 0) < 0)
+    {
+        Napi::Error::New(info.Env(), "Error while sending crop command (x)").ThrowAsJavaScriptException();
+        return info.Env().Undefined();
+    }
+
+    if (avfilter_graph_send_command(filterGraph, "crop", "y", top.c_str(), 0, 0, 0) < 0)
+    {
+        Napi::Error::New(info.Env(), "Error while sending crop command (y)").ThrowAsJavaScriptException();
         return info.Env().Undefined();
     }
 
@@ -158,7 +175,7 @@ Napi::Value AVFilterGraphObject::Filter(const Napi::CallbackInfo &info)
     //     return info.Env().Undefined();
     // }
 
-    AVFrame* filtered_frame = av_frame_alloc();
+    AVFrame *filtered_frame = av_frame_alloc();
     if (!filtered_frame)
     {
         Napi::Error::New(info.Env(), "Could not allocate filtered frame").ThrowAsJavaScriptException();
