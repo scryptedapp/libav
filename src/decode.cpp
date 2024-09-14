@@ -134,6 +134,7 @@ public:
     int videoStreamIndex;
     AVCodecContext *codecContext;
     enum AVHWDeviceType hw_device_value;
+    bool sentKeyframe;
 
 private:
     Napi::Value Open(const Napi::CallbackInfo &info);
@@ -218,6 +219,11 @@ public:
                 av_packet_unref(packet);
             }
 
+            bool keyFrame = packet->flags & AV_PKT_FLAG_KEY;
+            bool sentKeyframe = formatContextObject->sentKeyframe;
+            if (!sentKeyframe && keyFrame)
+               formatContextObject->sentKeyframe = true;
+
             ret = avcodec_send_packet(codecContext, packet);
             av_packet_unref(packet); // Reset the packet for the next frame
 
@@ -227,7 +233,8 @@ public:
             if (ret)
             {
                 av_packet_free(&packet);
-                fprintf(stderr, "Error sending packet to decoder.\n");
+                if (sentKeyframe)
+                    fprintf(stderr, "Error sending packet to decoder.\n");
                 printAVError(ret);
                 result = nullptr;
                 return;
@@ -317,10 +324,13 @@ AVFormatContextObject::AVFormatContextObject(const Napi::CallbackInfo &info)
       fmt_ctx_(nullptr),
       videoStreamIndex(-1),
       codecContext(nullptr),
-      hw_device_value(AV_HWDEVICE_TYPE_NONE)
+      hw_device_value(AV_HWDEVICE_TYPE_NONE),
+      sentKeyframe(false)
 {
     // i don't think this constructor is called from js??
     Napi::Env env = info.Env();
+
+    sentKeyframe = false;
 
     if (info.Length() > 0 && info[0].IsBigInt())
     {
