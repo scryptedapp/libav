@@ -16,36 +16,36 @@
                     "Security",
                 ],
             },
-                 'configurations': {
-            'Debug': {
-                'msvs_settings': {
-                           "VCLinkerTool": {
-          "AdditionalOptions": [
-            "/NODEFAULTLIB:libcmt.lib"
-          ]
-        },
-                            'VCCLCompilerTool': {
-                                'RuntimeLibrary': '3' # /MDd
+            "configurations": {
+                "Debug": {
+                    "msvs_settings": {
+                        "VCLinkerTool": {
+                            "AdditionalOptions": ["/NODEFAULTLIB:libcmt.lib"]
+                        },
+                        "VCCLCompilerTool": {"RuntimeLibrary": "3"},  # /MDd
+                    },
+                },
+                "Release": {
+                    "msvs_settings": {
+                        "VCLinkerTool": {
+                            "AdditionalOptions": ["/NODEFAULTLIB:libcmt.lib"]
+                        },
+                        "VCCLCompilerTool": {"RuntimeLibrary": "2"},  # /MD
                     },
                 },
             },
-            'Release': {
-                'msvs_settings': {
-                    "VCLinkerTool": {
-          "AdditionalOptions": [
-            "/NODEFAULTLIB:libcmt.lib"
-          ]
-        },
-                            'VCCLCompilerTool': {
-                                'RuntimeLibrary': '2' # /MD
-                    },
-                },
-            },
-        },
             "conditions": [
                 [
                     "OS=='win'",
                     {
+                        "copies": [
+                            {
+                                "files": [
+                                    "<(module_root_dir)/FFmpeg/ffmpeg.exe",
+                                ],
+                                "destination": "<(PRODUCT_DIR)/",
+                            }
+                        ],
                         "actions": [
                             {
                                 "action_name": "ffmpeg configure",
@@ -69,7 +69,6 @@
                             "<(module_root_dir)/FFmpeg/libavutil/libavutil.a",
                             "<(module_root_dir)/FFmpeg/libswscale/libswscale.a",
                             "<(module_root_dir)/FFmpeg/libswresample/libswresample.a",
-
                             "<(module_root_dir)/_vplinstall/lib/vpl.lib",
                             "Ws2_32.lib",
                             "mf.lib",
@@ -84,6 +83,14 @@
                 [
                     "OS=='mac'",
                     {
+                        "copies": [
+                            {
+                                "files": [
+                                    "<(module_root_dir)/FFmpeg/ffmpeg",
+                                ],
+                                "destination": "<(PRODUCT_DIR)/",
+                            }
+                        ],
                         "actions": [
                             {
                                 "action_name": "ffmpeg configure",
@@ -112,6 +119,14 @@
                 [
                     "OS=='linux'",
                     {
+                        "copies": [
+                            {
+                                "files": [
+                                    "<(module_root_dir)/FFmpeg/ffmpeg",
+                                ],
+                                "destination": "<(PRODUCT_DIR)/",
+                            }
+                        ],
                         "actions": [
                             {
                                 "action_name": "ffmpeg configure",
