@@ -111,7 +111,12 @@ export interface AVPacket {
 
 export interface AVCodecContext {
     readonly hardwareDevice: string;
+    /**
+     * The pixel format of the output frames.
+     * May not be available until the first frame is read.
+     */
     readonly pixelFormat: string;
+    readonly hardwarePixelFormat: string;
 
     [Symbol.dispose](): void;
     destroy(): void;

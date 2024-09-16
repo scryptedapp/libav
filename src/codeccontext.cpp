@@ -35,6 +35,7 @@ public:
 private:
     Napi::Value GetHardwareDevice(const Napi::CallbackInfo &info);
     Napi::Value GetPixelFormat(const Napi::CallbackInfo &info);
+    Napi::Value GetHardwarePixelFormat(const Napi::CallbackInfo &info);
     Napi::Value ReceiveFrame(const Napi::CallbackInfo &info);
     Napi::Value SendPacket(const Napi::CallbackInfo &info);
     Napi::Value Destroy(const Napi::CallbackInfo &info);
@@ -70,6 +71,13 @@ Napi::Object AVCodecContextObject::Init(Napi::Env env, Napi::Object exports)
     Napi::HandleScope scope(env);
 
     Napi::Function func = DefineClass(env, "AVCodecContextObject", {
+
+                                                                       AVCodecContextObject::InstanceAccessor("hardwareDevice", &AVCodecContextObject::GetHardwareDevice, nullptr),
+
+                                                                       AVCodecContextObject::InstanceAccessor("pixelFormat", &AVCodecContextObject::GetPixelFormat, nullptr),
+
+                                                                       AVCodecContextObject::InstanceAccessor("hardwarePixelFormat", &AVCodecContextObject::GetHardwarePixelFormat, nullptr),
+
                                                                        InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVCodecContextObject::Destroy),
 
                                                                        InstanceMethod("destroy", &AVCodecContextObject::Destroy),
@@ -77,10 +85,6 @@ Napi::Object AVCodecContextObject::Init(Napi::Env env, Napi::Object exports)
                                                                        InstanceMethod("sendPacket", &AVCodecContextObject::SendPacket),
 
                                                                        InstanceMethod("receiveFrame", &AVCodecContextObject::ReceiveFrame),
-
-                                                                       AVCodecContextObject::InstanceAccessor("hardwareDevice", &AVCodecContextObject::GetHardwareDevice, nullptr),
-
-                                                                       AVCodecContextObject::InstanceAccessor("pixelFormat", &AVCodecContextObject::GetPixelFormat, nullptr),
                                                                    });
 
     constructor = Napi::Persistent(func);
@@ -270,6 +274,23 @@ Napi::Value AVCodecContextObject::GetPixelFormat(const Napi::CallbackInfo &info)
     }
 
     const char *name = av_get_pix_fmt_name(codecContext->pix_fmt);
+    if (!name)
+    {
+        return env.Undefined();
+    }
+    return Napi::String::New(env, name);
+}
+
+Napi::Value AVCodecContextObject::GetHardwarePixelFormat(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+
+    if (!codecContext)
+    {
+        return env.Undefined();
+    }
+
+    const char *name = av_get_pix_fmt_name(hw_pix_fmt);
     if (!name)
     {
         return env.Undefined();
