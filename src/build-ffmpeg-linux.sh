@@ -1,14 +1,16 @@
 DEBIAN_FRONTEND=noninteractive
 cd $(dirname $0)/../FFmpeg
 
-if [ ! -z "$FFMPEG_NO_REBUILD" ]
-then
-  if [ -f ffmpeg ]
+function check_ffmpeg() {
+  if [ ! -z "$FFMPEG_NO_REBUILD" ]
   then
-    echo "FFmpeg already built, skipping build."
-    exit 0
+    if [ -f ffmpeg ]
+    then
+      echo "FFmpeg already built, skipping build."
+      exit 0
+    fi
   fi
-fi
+}
 
 sudo apt -y update
 sudo apt -y install libva-dev libdrm-dev yasm cmake ocl-icd-opencl-dev
@@ -28,10 +30,15 @@ then
     make install PREFIX=../_nvinstall
     export PKG_CONFIG_PATH=$PWD/../_nvinstall/lib/pkgconfig:$PKG_CONFIG_PATH
     popd
+
+    check_ffmpeg
+
     echo "Building with NVIDIA GPU and Vulkan support"
     export PATH=/usr/local/cuda-12.4/bin:$PATH
     ./configure --enable-libvpl --enable-vaapi --enable-opencl --enable-libglslang --enable-cuda-llvm --enable-nvdec --extra-cflags=-I/usr/local/cuda/include --extra-ldflags=-L/usr/local/cuda/lib64
 else
+    check_ffmpeg
+
     ./configure --enable-vaapi --enable-opencl
 fi
 
