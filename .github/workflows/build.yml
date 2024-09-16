@@ -35,6 +35,14 @@ jobs:
       with:
         submodules: 'recursive'
 
+    - name: Set up Homebrew
+      if: ${{ matrix.os[0] == 'macos-latest' && matrix.os[1] == '-x86_64' }}
+      uses: Homebrew/actions/setup-homebrew@master
+
+    - name: Install yasm
+      if: ${{ matrix.os[0] == 'macos-latest' && matrix.os[1] == '-x86_64' }}
+      run: brew install yasm
+
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
