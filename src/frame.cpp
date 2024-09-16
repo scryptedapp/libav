@@ -170,7 +170,7 @@ Napi::Value AVFrameObject::ToBuffer(const Napi::CallbackInfo &info)
         return env.Null();
     }
 
-    if (!frame->data)
+    if (!frame_->data[0])
     {
         Napi::Error::New(env, "Frame data is null").ThrowAsJavaScriptException();
         return env.Null();
