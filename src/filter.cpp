@@ -14,12 +14,12 @@ class AVFilterGraphObject : public Napi::ObjectWrap<AVFilterGraphObject>
 {
 public:
     static Napi::Object Init(Napi::Env env, Napi::Object exports);
+    static Napi::Object NewInstance(Napi::Env env, AVFilterGraph *filterGraph, AVFilterContext *buffersrc_ctx, AVFilterContext *buffersink_ctx);
+
     AVFilterGraphObject(const Napi::CallbackInfo &info);
     ~AVFilterGraphObject();
     AVFilterContext *buffersrc_ctx;
     AVFilterContext *buffersink_ctx;
-
-    static Napi::Object NewInstance(Napi::Env env, AVFilterGraph *filterGraph, AVFilterContext *buffersrc_ctx, AVFilterContext *buffersink_ctx);
 
 private:
     static Napi::FunctionReference constructor;

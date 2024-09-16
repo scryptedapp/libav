@@ -2,7 +2,9 @@
     "targets": [
         {
             "target_name": "addon",
-            "sources": ["src/decode.cpp"],
+            "sources": [
+                "src/formatcontext.cpp"
+            ],
             "xcode_settings": {
                 "MACOSX_DEPLOYMENT_TARGET": "12.0",
                 "OTHER_LDFLAGS": [

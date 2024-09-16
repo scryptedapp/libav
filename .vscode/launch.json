@@ -9,14 +9,14 @@
             "type": "node",
             "request": "launch",
             "args": [
-                "${workspaceRoot}/test/install-test.ts"
+                "${workspaceRoot}/test/api-test.ts"
             ],
+            "preLaunchTask": "npm: build",
             "runtimeArgs": [
                 "-r",
                 "ts-node/register"
             ],
             "cwd": "${workspaceRoot}",
-            "protocol": "inspector",
             "internalConsoleOptions": "openOnSessionStart"
         }
     ]

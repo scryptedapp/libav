@@ -94,14 +94,26 @@ export interface AVFilter {
     filter(frame: AVFrame): AVFrame;
 }
 
+export interface AVPacket {
+    destroy(): void;
+    readonly isKeyFrame: boolean;
+}
+
+export interface AVCodecContext {
+    readonly hardwareDevice: string;
+
+    destroy(): void;
+    sendPacket(packet: AVPacket): Promise<void>;
+    receiveFrame(): Promise<AVFrame>;
+}
+
 export interface AVFormatContext {
-    open(input: string, hardwareDevices: string[]): void;
-    readFrame(): Promise<AVFrame>;
-    createFilter(width: number, height: number, filter: string, useHardware: boolean): AVFilter;
+    open(input: string): void;
+    createDecoder(hardwareDevices: string[]): AVCodecContext;
+    readFrame(): Promise<AVPacket>;
+    createFilter(width: number, height: number, filter: string, context: AVCodecContext): AVFilter;
     close(): void;
 
-    readonly hardwareDevice: string;
-    readonly pointer: bigint;
     readonly metadata: any;
 }
 

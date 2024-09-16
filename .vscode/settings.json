@@ -7,6 +7,8 @@
         "deque": "cpp",
         "list": "cpp",
         "string": "cpp",
-        "vector": "cpp"
+        "vector": "cpp",
+        "stdexcept": "cpp",
+        "new": "cpp"
     }
 }
