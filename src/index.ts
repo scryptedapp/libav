@@ -95,8 +95,14 @@ export interface AVFilter {
 }
 
 export interface AVPacket {
-    destroy(): void;
     readonly isKeyFrame: boolean;
+    readonly size: number;
+    readonly pts: number;
+    readonly dts: number;
+    readonly duration: number;
+
+    getData(): Buffer;
+    destroy(): void;
 }
 
 export interface AVCodecContext {
@@ -109,7 +115,7 @@ export interface AVCodecContext {
 
 export interface AVFormatContext {
     open(input: string): void;
-    createDecoder(hardwareDevices: string[]): AVCodecContext;
+    createDecoder(hardwareDevice?: string, decoder?: string): AVCodecContext;
     readFrame(): Promise<AVPacket>;
     createFilter(width: number, height: number, filter: string, context: AVCodecContext): AVFilter;
     close(): void;

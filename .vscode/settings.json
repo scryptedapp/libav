@@ -9,6 +9,9 @@
         "string": "cpp",
         "vector": "cpp",
         "stdexcept": "cpp",
-        "new": "cpp"
+        "new": "cpp",
+        "execution": "c",
+        "array": "cpp",
+        "string_view": "cpp"
     }
 }

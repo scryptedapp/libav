@@ -26,6 +26,11 @@ public:
     Napi::Value Clone(const Napi::CallbackInfo &info);
     Napi::Value Destroy(const Napi::CallbackInfo &info);
     Napi::Value GetIsKeyFrame(const Napi::CallbackInfo &info);
+    Napi::Value GetPTS(const Napi::CallbackInfo &info);
+    Napi::Value GetDTS(const Napi::CallbackInfo &info);
+    Napi::Value GetDuration(const Napi::CallbackInfo &info);
+    Napi::Value GetSize(const Napi::CallbackInfo &info);
+    Napi::Value GetData(const Napi::CallbackInfo &info);
 
     AVPacket *packet;
 };
@@ -40,9 +45,19 @@ Napi::Object AVPacketObject::Init(Napi::Env env, Napi::Object exports)
 
                                                                  AVPacketObject::InstanceAccessor("isKeyFrame", &AVPacketObject::GetIsKeyFrame, nullptr),
 
+                                                                 AVPacketObject::InstanceAccessor("pts", &AVPacketObject::GetPTS, nullptr),
+
+                                                                 AVPacketObject::InstanceAccessor("dts", &AVPacketObject::GetDTS, nullptr),
+
+                                                                 AVPacketObject::InstanceAccessor("duration", &AVPacketObject::GetDuration, nullptr),
+
+                                                                 AVPacketObject::InstanceAccessor("size", &AVPacketObject::GetSize, nullptr),
+
                                                                  InstanceMethod("clone", &AVPacketObject::Clone),
 
                                                                  InstanceMethod("destroy", &AVPacketObject::Destroy),
+
+                                                                 InstanceMethod("getData", &AVPacketObject::GetData),
 
                                                              });
 
@@ -109,4 +124,35 @@ Napi::Value AVPacketObject::GetIsKeyFrame(const Napi::CallbackInfo &info)
 {
     bool keyFrame = packet ? packet->flags & AV_PKT_FLAG_KEY : false;
     return Napi::Boolean::New(info.Env(), keyFrame);
+}
+
+Napi::Value AVPacketObject::GetPTS(const Napi::CallbackInfo &info)
+{
+    return Napi::Number::New(info.Env(), packet ? packet->pts : 0);
+}
+
+Napi::Value AVPacketObject::GetDTS(const Napi::CallbackInfo &info)
+{
+    return Napi::Number::New(info.Env(), packet ? packet->dts : 0);
+}
+
+Napi::Value AVPacketObject::GetDuration(const Napi::CallbackInfo &info)
+{
+    return Napi::Number::New(info.Env(), packet ? packet->duration : 0);
+}
+
+Napi::Value AVPacketObject::GetSize(const Napi::CallbackInfo &info)
+{
+    return Napi::Number::New(info.Env(), packet ? packet->size : 0);
+}
+
+Napi::Value AVPacketObject::GetData(const Napi::CallbackInfo &info)
+{
+    if (!packet || !packet->data)
+    {
+        return info.Env().Undefined();
+    }
+
+    Napi::Buffer<uint8_t> buffer = Napi::Buffer<uint8_t>::Copy(info.Env(), packet->data, packet->size);
+    return buffer;
 }
