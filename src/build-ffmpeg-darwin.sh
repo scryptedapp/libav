@@ -9,5 +9,5 @@ then
   fi
 fi
 
-MACOSX_DEPLOYMENT_TARGET=12.0 ./configure --disable-libxcb --enable-opencl --enable-videotoolbox --enable-neon --enable-pthreads --cc=clang && MACOSX_DEPLOYMENT_TARGET=12.0 make -j32
+MACOSX_DEPLOYMENT_TARGET=12.0 ./configure --disable-xlib --disable-sdl2 --disable-libxcb --enable-opencl --enable-videotoolbox --enable-neon --enable-pthreads --cc=clang && MACOSX_DEPLOYMENT_TARGET=12.0 make -j32
 exit $?

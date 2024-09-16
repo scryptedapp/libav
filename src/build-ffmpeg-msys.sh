@@ -1,15 +1,5 @@
 cd $(dirname $0)
 
-cd ../FFmpeg
-if [ ! -z "$FFMPEG_NO_REBUILD" ]
-then
-  if [ -f ffmpeg.exe ]
-  then
-    echo "FFmpeg already built, skipping build."
-    exit 0
-  fi
-fi
-
 cd ../nv-codec-headers
 make install PREFIX=../_nvinstall
 
@@ -20,6 +10,16 @@ cmake --build _build --config Release
 cmake --install _build --config Release
 
 cd ../FFmpeg
+
+if [ ! -z "$FFMPEG_NO_REBUILD" ]
+then
+  if [ -f ffmpeg.exe ]
+  then
+    echo "FFmpeg already built, skipping build."
+    exit 0
+  fi
+fi
+
 pacman --noconfirm -S yasm pkg-config clang diffutils make
 export PKG_CONFIG_PATH=$PWD/../_vplinstall/lib/pkgconfig:$PWD/../_nvinstall/lib/pkgconfig:$PKG_CONFIG_PATH
 
