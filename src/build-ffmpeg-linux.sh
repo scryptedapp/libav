@@ -1,5 +1,15 @@
 DEBIAN_FRONTEND=noninteractive
 cd $(dirname $0)/../FFmpeg
+
+if [ ! -z "$FFMPEG_NO_REBUILD" ]
+then
+  if [ -f ffmpeg ]
+  then
+    echo "FFmpeg already built, skipping build."
+    exit 0
+  fi
+fi
+
 sudo apt -y update
 sudo apt -y install libva-dev libdrm-dev yasm cmake ocl-icd-opencl-dev
 

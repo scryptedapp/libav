@@ -1,5 +1,15 @@
 cd $(dirname $0)
 
+cd ../FFmpeg
+if [ ! -z "$FFMPEG_NO_REBUILD" ]
+then
+  if [ -f ffmpeg.exe ]
+  then
+    echo "FFmpeg already built, skipping build."
+    exit 0
+  fi
+fi
+
 cd ../nv-codec-headers
 make install PREFIX=../_nvinstall
 
