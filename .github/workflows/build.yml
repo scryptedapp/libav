@@ -21,26 +21,27 @@ jobs:
       matrix:
         # need older ubuntu for backwards compat with glibc.
         os: [
-          [self-hosted-x86_64, ''],
-          [macos-latest, ''],
-          [macos-latest, '-x86_64'],
-          [self-hosted-arm64, ''],
-          [self-hosted-windows-x86_64, ''],
+          self-hosted-x86_64,
+          macos-latest,
+          macos-13,
+          self-hosted-arm64,
+          self-hosted-windows-x86_64,
         ]
 
-    runs-on: ${{ matrix.os[0] }}
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v2
       with:
         submodules: 'recursive'
 
+    # x86_64 needs yasm
     - name: Set up Homebrew
-      if: ${{ matrix.os[0] == 'macos-latest' && matrix.os[1] == '-x86_64' }}
+      if: ${{ matrix.os == 'macos-13' }}
       uses: Homebrew/actions/setup-homebrew@master
 
     - name: Install yasm
-      if: ${{ matrix.os[0] == 'macos-latest' && matrix.os[1] == '-x86_64' }}
+      if: ${{ matrix.os == 'macos-13' }}
       run: brew install yasm
 
     - name: Set up Python
@@ -50,7 +51,7 @@ jobs:
         python-version: '3.10'
       # this action does not have 3.10 available for linux arm64 (or any version at time of checking).
       # https://raw.githubusercontent.com/actions/python-versions/main/versions-manifest.json
-      if: ${{ matrix.os == 'macos-latest' }}
+      if: ${{ matrix.os == 'macos-latest' || matrix.os == 'macos-13' }}
 
     - name: Use Node.js 20.x
       uses: actions/setup-node@v1
@@ -59,7 +60,7 @@ jobs:
 
     - run: npm install
 
-    - run: npm run prebuildify-${{ matrix.os[0] }}${{ matrix.os[1] }}
+    - run: npm run prebuildify-${{ matrix.os }}
 
     - run: npm run prebuildify-upload -- ${{ secrets.GITHUB_TOKEN }}
       if: ${{ github.event.inputs.uploadAssets != 'false' }}
