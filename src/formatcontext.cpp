@@ -248,17 +248,19 @@ Napi::Object AVFormatContextObject::Init(Napi::Env env, Napi::Object exports)
     Napi::HandleScope scope(env);
 
     Napi::Function func = DefineClass(env, "AVFormatContext", {
+                                                                  InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVFormatContextObject::Close),
+
                                                                   InstanceMethod("open", &AVFormatContextObject::Open),
 
                                                                   InstanceMethod("close", &AVFormatContextObject::Close),
 
                                                                   InstanceMethod("createDecoder", &AVFormatContextObject::CreateDecoder),
 
-                                                                  AVFormatContextObject::InstanceAccessor("metadata", &AVFormatContextObject::GetMetadata, nullptr),
-
                                                                   InstanceMethod("readFrame", &AVFormatContextObject::ReadFrame),
 
                                                                   InstanceMethod("createFilter", &AVFormatContextObject::CreateFilter),
+
+                                                                  AVFormatContextObject::InstanceAccessor("metadata", &AVFormatContextObject::GetMetadata, nullptr),
                                                               });
 
     constructor = Napi::Persistent(func);
@@ -310,25 +312,25 @@ Napi::Value AVFormatContextObject::CreateFilter(const Napi::CallbackInfo &info)
     // outWidth: number, outHeight: number, filter: string, codecContext (with hardware frames context)
     if (!info[0].IsNumber())
     {
-        Napi::TypeError::New(env, "Object expected").ThrowAsJavaScriptException();
+        Napi::TypeError::New(env, "Number expected for argument 0: frameWidth").ThrowAsJavaScriptException();
         return env.Undefined();
     }
 
     if (!info[1].IsNumber())
     {
-        Napi::TypeError::New(env, "Object expected").ThrowAsJavaScriptException();
+        Napi::TypeError::New(env, "Number expected for argument 1: frameHeight").ThrowAsJavaScriptException();
         return env.Undefined();
     }
 
     if (!info[2].IsString())
     {
-        Napi::TypeError::New(env, "String expected").ThrowAsJavaScriptException();
+        Napi::TypeError::New(env, "String expected for argument 2: filter").ThrowAsJavaScriptException();
         return env.Undefined();
     }
 
-    if (!info[3].IsBoolean())
+    if (!info[3].IsObject())
     {
-        Napi::TypeError::New(env, "Boolean expected").ThrowAsJavaScriptException();
+        Napi::TypeError::New(env, "AVCodecContext expected for argument 3: codecContext").ThrowAsJavaScriptException();
         return env.Undefined();
     }
 
@@ -568,8 +570,11 @@ Napi::Value AVFormatContextObject::CreateDecoder(const Napi::CallbackInfo &info)
 
     codecContextObject->codecContext = avcodec_alloc_context3(codec);
     codecContextObject->codecContext->opaque = codecContextObject;
-    codecContextObject->codecContext->get_format = get_hw_format;
-    codecContextObject->codecContext->hw_device_ctx = hw_device_ctx;
+    if (hw_device_ctx)
+    {
+        codecContextObject->codecContext->get_format = get_hw_format;
+        codecContextObject->codecContext->hw_device_ctx = hw_device_ctx;
+    }
 
     if ((ret = avcodec_parameters_to_context(codecContextObject->codecContext, fmt_ctx_->streams[videoStreamIndex]->codecpar)) < 0)
     {

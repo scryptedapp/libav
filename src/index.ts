@@ -76,10 +76,12 @@ export async function downloadAddon(installPath?: string) {
 }
 
 export interface AVFrame {
-    close(): void;
-    width: number;
-    height: number;
-    format: string;
+    readonly width: number;
+    readonly height: number;
+    readonly pixelFormat: string;
+
+    [Symbol.dispose](): void;
+    destroy(): void;
     toBuffer(): Buffer;
     /**
      *
@@ -89,6 +91,7 @@ export interface AVFrame {
 }
 
 export interface AVFilter {
+    [Symbol.dispose](): void;
     destroy(): void;
     setCrop(x: string, y: string, width: string, height: string): void;
     filter(frame: AVFrame): AVFrame;
@@ -101,26 +104,30 @@ export interface AVPacket {
     readonly dts: number;
     readonly duration: number;
 
+    [Symbol.dispose](): void;
     getData(): Buffer;
     destroy(): void;
 }
 
 export interface AVCodecContext {
     readonly hardwareDevice: string;
+    readonly pixelFormat: string;
 
+    [Symbol.dispose](): void;
     destroy(): void;
     sendPacket(packet: AVPacket): Promise<void>;
     receiveFrame(): Promise<AVFrame>;
 }
 
 export interface AVFormatContext {
+    readonly metadata: any;
+
+    [Symbol.dispose](): void;
     open(input: string): void;
     createDecoder(hardwareDevice?: string, decoder?: string): AVCodecContext;
     readFrame(): Promise<AVPacket>;
     createFilter(width: number, height: number, filter: string, context: AVCodecContext): AVFilter;
     close(): void;
-
-    readonly metadata: any;
 }
 
 export function setAVLogCallback(callback: (msg: string, level: number) => void) {

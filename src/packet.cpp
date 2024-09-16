@@ -53,6 +53,8 @@ Napi::Object AVPacketObject::Init(Napi::Env env, Napi::Object exports)
 
                                                                  AVPacketObject::InstanceAccessor("size", &AVPacketObject::GetSize, nullptr),
 
+                                                                 InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVPacketObject::Destroy),
+
                                                                  InstanceMethod("clone", &AVPacketObject::Clone),
 
                                                                  InstanceMethod("destroy", &AVPacketObject::Destroy),

@@ -34,6 +34,7 @@ public:
 
 private:
     Napi::Value GetHardwareDevice(const Napi::CallbackInfo &info);
+    Napi::Value GetPixelFormat(const Napi::CallbackInfo &info);
     Napi::Value ReceiveFrame(const Napi::CallbackInfo &info);
     Napi::Value SendPacket(const Napi::CallbackInfo &info);
     Napi::Value Destroy(const Napi::CallbackInfo &info);
@@ -69,20 +70,23 @@ Napi::Object AVCodecContextObject::Init(Napi::Env env, Napi::Object exports)
     Napi::HandleScope scope(env);
 
     Napi::Function func = DefineClass(env, "AVCodecContextObject", {
-                                                                       InstanceMethod("destroy", &AVCodecContextObject::Destroy),
+                                                                       InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVCodecContextObject::Destroy),
 
-                                                                       AVCodecContextObject::InstanceAccessor("hardwareDevice", &AVCodecContextObject::GetHardwareDevice, nullptr),
+                                                                       InstanceMethod("destroy", &AVCodecContextObject::Destroy),
 
                                                                        InstanceMethod("sendPacket", &AVCodecContextObject::SendPacket),
 
                                                                        InstanceMethod("receiveFrame", &AVCodecContextObject::ReceiveFrame),
+
+                                                                       AVCodecContextObject::InstanceAccessor("hardwareDevice", &AVCodecContextObject::GetHardwareDevice, nullptr),
+
+                                                                       AVCodecContextObject::InstanceAccessor("pixelFormat", &AVCodecContextObject::GetPixelFormat, nullptr),
                                                                    });
 
     constructor = Napi::Persistent(func);
     constructor.SuppressDestruct();
     return exports;
 }
-
 
 // Factory method to create an instance from C++
 Napi::Object AVCodecContextObject::NewInstance(Napi::Env env)
@@ -182,8 +186,13 @@ public:
 
     void Execute() override
     {
+        if (!packet)
+        {
+            SetError("Packet is null");
+            return;
+        }
+
         int ret = avcodec_send_packet(codecContext, packet);
-        av_packet_free(&packet);
 
         // errors are typically caused by missing codec info
         // or invalid packets, and may resolve on a later packet.
@@ -249,4 +258,21 @@ Napi::Value AVCodecContextObject::GetHardwareDevice(const Napi::CallbackInfo &in
         return info.Env().Undefined();
     }
     return Napi::String::New(env, hardwareDeviceName);
+}
+
+Napi::Value AVCodecContextObject::GetPixelFormat(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+
+    if (!codecContext)
+    {
+        return env.Undefined();
+    }
+
+    const char *name = av_get_pix_fmt_name(codecContext->pix_fmt);
+    if (!name)
+    {
+        return env.Undefined();
+    }
+    return Napi::String::New(env, name);
 }

@@ -39,6 +39,8 @@ Napi::Object AVFilterGraphObject::Init(Napi::Env env, Napi::Object exports)
 
     Napi::Function func = DefineClass(env, "AVFilterGraphObject", {
 
+                                                                      InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVFilterGraphObject::Destroy),
+
                                                                       InstanceMethod("destroy", &AVFilterGraphObject::Destroy),
 
                                                                       InstanceMethod("filter", &AVFilterGraphObject::Filter),

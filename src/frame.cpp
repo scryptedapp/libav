@@ -30,9 +30,9 @@ private:
     static Napi::FunctionReference constructor;
     Napi::Value GetWidth(const Napi::CallbackInfo &info);
     Napi::Value GetHeight(const Napi::CallbackInfo &info);
-    Napi::Value GetFormat(const Napi::CallbackInfo &info);
+    Napi::Value GetPixelFormat(const Napi::CallbackInfo &info);
 
-    Napi::Value Close(const Napi::CallbackInfo &info);
+    Napi::Value Destroy(const Napi::CallbackInfo &info);
     Napi::Value ToJPEG(const Napi::CallbackInfo &info);
     Napi::Value ToBuffer(const Napi::CallbackInfo &info);
 };
@@ -45,17 +45,19 @@ Napi::Object AVFrameObject::Init(Napi::Env env, Napi::Object exports)
 
     Napi::Function func = DefineClass(env, "AVFrameObject", {
 
-                                                                InstanceMethod("close", &AVFrameObject::Close),
-
-                                                                InstanceMethod("toBuffer", &AVFrameObject::ToBuffer),
-
-                                                                InstanceMethod("toJpeg", &AVFrameObject::ToJPEG),
-
                                                                 AVFrameObject::InstanceAccessor("width", &AVFrameObject::GetWidth, nullptr),
 
                                                                 AVFrameObject::InstanceAccessor("height", &AVFrameObject::GetHeight, nullptr),
 
-                                                                AVFrameObject::InstanceAccessor("format", &AVFrameObject::GetFormat, nullptr),
+                                                                AVFrameObject::InstanceAccessor("pixelFormat", &AVFrameObject::GetPixelFormat, nullptr),
+
+                                                                InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVFrameObject::Destroy),
+
+                                                                InstanceMethod("destroy", &AVFrameObject::Destroy),
+
+                                                                InstanceMethod("toBuffer", &AVFrameObject::ToBuffer),
+
+                                                                InstanceMethod("toJpeg", &AVFrameObject::ToJPEG),
 
                                                             });
 
@@ -190,14 +192,15 @@ Napi::Value AVFrameObject::ToBuffer(const Napi::CallbackInfo &info)
             memcpy(byte_array + y * stride, frame_->data[0] + y * frame_->linesize[0], stride);
         }
     }
-    else {
+    else
+    {
         memcpy(byte_array, frame_->data[0], buffer_size);
     }
 
     return buffer;
 }
 
-Napi::Value AVFrameObject::Close(const Napi::CallbackInfo &info)
+Napi::Value AVFrameObject::Destroy(const Napi::CallbackInfo &info)
 {
     if (frame_)
     {
@@ -227,7 +230,7 @@ Napi::Value AVFrameObject::GetHeight(const Napi::CallbackInfo &info)
     return Napi::Number::New(env, frame_->height);
 }
 
-Napi::Value AVFrameObject::GetFormat(const Napi::CallbackInfo &info)
+Napi::Value AVFrameObject::GetPixelFormat(const Napi::CallbackInfo &info)
 {
     Napi::Env env = info.Env();
     if (!frame_)
