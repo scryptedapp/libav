@@ -15,6 +15,8 @@ extern "C"
 #include <libavutil/imgutils.h>
 }
 
+#include "error.h"
+
 class AVFrameObject : public Napi::ObjectWrap<AVFrameObject>
 {
 public:
@@ -129,27 +131,26 @@ Napi::Value AVFrameObject::ToJPEG(const Napi::CallbackInfo &info)
     av_opt_set_int(c, "qmin", quality, 0);                 // Set the minimum quality
     av_opt_set_int(c, "qmax", quality, 0);                 // Set the maximum quality
 
-    if (avcodec_open2(c, codec, NULL) < 0)
+    int ret;
+    if ((ret = avcodec_open2(c, codec, NULL)) < 0)
     {
         avcodec_free_context(&c);
-        Napi::Error::New(env, "Failed to open codec").ThrowAsJavaScriptException();
+        Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();
         return env.Null();
     }
 
-    int ret = avcodec_send_frame(c, frame_);
-    if (ret < 0)
+    if ((ret = avcodec_send_frame(c, frame_)) < 0)
     {
         avcodec_free_context(&c);
-        Napi::Error::New(env, "Failed to send frame").ThrowAsJavaScriptException();
+        Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();
         return env.Null();
     }
 
     AVPacket *pkt = av_packet_alloc();
-    ret = avcodec_receive_packet(c, pkt);
-    if (ret < 0)
+    if ((ret = avcodec_receive_packet(c, pkt)) < 0)
     {
         avcodec_free_context(&c);
-        Napi::Error::New(env, "Failed to receive packet").ThrowAsJavaScriptException();
+        Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();
         return env.Null();
     }
 
@@ -166,6 +167,12 @@ Napi::Value AVFrameObject::ToBuffer(const Napi::CallbackInfo &info)
     if (!frame_)
     {
         Napi::Error::New(env, "Frame object is null").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    if (!frame->data)
+    {
+        Napi::Error::New(env, "Frame data is null").ThrowAsJavaScriptException();
         return env.Null();
     }
 

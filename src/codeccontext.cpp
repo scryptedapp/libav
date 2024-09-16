@@ -15,7 +15,7 @@ extern "C"
 #include <v8.h>
 
 #include "packet.cpp"
-#include "error.cpp"
+#include "error.h"
 
 class AVCodecContextObject : public Napi::ObjectWrap<AVCodecContextObject>
 {

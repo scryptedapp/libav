@@ -9,6 +9,7 @@ extern "C"
 }
 
 #include "frame.cpp"
+#include "error.h"
 
 class AVFilterGraphObject : public Napi::ObjectWrap<AVFilterGraphObject>
 {

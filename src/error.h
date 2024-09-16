@@ -14,20 +14,4 @@ extern "C"
 #include <thread>
 #include <v8.h>
 
-#include "error.h"
-
-std::string AVErrorString(int errnum)
-{
-    char errbuf[256];
-    std::string error;
-
-    if (av_strerror(errnum, errbuf, sizeof(errbuf)) < 0)
-    {
-        error = "Unknown error code: " + std::to_string(errnum);
-    }
-    else
-    {
-        error = errbuf;
-    }
-    return error;
-}
+std::string AVErrorString(int errnum);

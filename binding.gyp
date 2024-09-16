@@ -3,7 +3,8 @@
         {
             "target_name": "addon",
             "sources": [
-                "src/formatcontext.cpp"
+                "src/formatcontext.cpp",
+                "src/error.cpp",
             ],
             "xcode_settings": {
                 "MACOSX_DEPLOYMENT_TARGET": "12.0",
