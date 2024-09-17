@@ -16,28 +16,8 @@ extern "C"
 }
 
 #include "error.h"
-
-class AVFrameObject : public Napi::ObjectWrap<AVFrameObject>
-{
-public:
-    static Napi::Object Init(Napi::Env env, Napi::Object exports);
-    AVFrameObject(const Napi::CallbackInfo &info);
-    ~AVFrameObject(); // Explicitly declare the destructor
-
-    // Factory method to create an instance from C++
-    static Napi::Object NewInstance(Napi::Env env, AVFrame *frame);
-    AVFrame *frame_;
-
-private:
-    static Napi::FunctionReference constructor;
-    Napi::Value GetWidth(const Napi::CallbackInfo &info);
-    Napi::Value GetHeight(const Napi::CallbackInfo &info);
-    Napi::Value GetPixelFormat(const Napi::CallbackInfo &info);
-
-    Napi::Value Destroy(const Napi::CallbackInfo &info);
-    Napi::Value ToJPEG(const Napi::CallbackInfo &info);
-    Napi::Value ToBuffer(const Napi::CallbackInfo &info);
-};
+#include "codeccontext.h"
+#include "frame.h"
 
 Napi::FunctionReference AVFrameObject::constructor;
 
@@ -60,6 +40,8 @@ Napi::Object AVFrameObject::Init(Napi::Env env, Napi::Object exports)
                                                                 InstanceMethod("toBuffer", &AVFrameObject::ToBuffer),
 
                                                                 InstanceMethod("toJpeg", &AVFrameObject::ToJPEG),
+
+                                                                InstanceMethod("createEncoder", &AVFrameObject::CreateEncoder),
 
                                                             });
 
@@ -159,6 +141,119 @@ Napi::Value AVFrameObject::ToJPEG(const Napi::CallbackInfo &info)
     avcodec_free_context(&c);
 
     return buffer;
+}
+
+Napi::Value AVFrameObject::CreateEncoder(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+
+    if (info.Length() < 1 || !info[0].IsObject())
+    {
+        Napi::TypeError::New(env, "Object expected for argument 0: options").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    if (!frame_)
+    {
+        Napi::Error::New(env, "Frame object is null").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    Napi::Object options = info[0].As<Napi::Object>();
+    Napi::Value codecNameValue = options.Get("encoder");
+
+    if (!codecNameValue.IsString())
+    {
+        Napi::TypeError::New(env, "String expected for encoder").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    const AVCodec *codec = avcodec_find_encoder_by_name(codecNameValue.As<Napi::String>().Utf8Value().c_str());
+
+    if (!codec)
+    {
+        Napi::Error::New(env, "Failed to find encoder").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    Napi::Value bitrate = options.Get("bitrate");
+    if (!bitrate.IsNumber())
+    {
+        Napi::TypeError::New(env, "Number expected for bitrate").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    Napi::Value timeBaseNum = options.Get("timeBaseNum");
+    if (!timeBaseNum.IsNumber())
+    {
+        Napi::TypeError::New(env, "Number expected for timeBaseNum").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    Napi::Value timeBaseDen = options.Get("timeBaseDen");
+    if (!timeBaseDen.IsNumber())
+    {
+        Napi::TypeError::New(env, "Number expected for timeBaseDen").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    AVCodecContext *c = avcodec_alloc_context3(codec);
+    if (!c)
+    {
+        Napi::Error::New(env, "Failed to allocate codec context").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    c->bit_rate = bitrate.As<Napi::Number>().Int32Value();
+    c->width = frame_->width;
+    c->height = frame_->height;
+    c->pix_fmt = (enum AVPixelFormat)frame_->format;
+    c->time_base.num = timeBaseNum.As<Napi::Number>().Int32Value();
+    c->time_base.den = timeBaseDen.As<Napi::Number>().Int32Value();
+
+    Napi::Value opts = options.Get("opts");
+    if (opts.IsObject())
+    {
+        Napi::Object optsObj = opts.As<Napi::Object>();
+        Napi::Array keys = optsObj.GetPropertyNames();
+        for (size_t i = 0; i < keys.Length(); i++)
+        {
+            Napi::String key = keys.Get(i).As<Napi::String>();
+            Napi::Value value = optsObj.Get(key);
+            if (value.IsString())
+            {
+                av_opt_set(c->priv_data, key.Utf8Value().c_str(), value.As<Napi::String>().Utf8Value().c_str(), 0);
+            }
+            else if (value.IsNumber())
+            {
+                av_opt_set_int(c->priv_data, key.Utf8Value().c_str(), value.As<Napi::Number>().Int32Value(), 0);
+            }
+        }
+    }
+
+    if (frame_->hw_frames_ctx)
+    {
+        AVHWFramesContext *frames_ctx = (AVHWFramesContext *)(frame_->hw_frames_ctx->data);
+        AVBufferRef *hw_device_ctx = frames_ctx->device_ref;
+        c->hw_frames_ctx = av_buffer_ref(frame_->hw_frames_ctx);
+        if (hw_device_ctx)
+        {
+            c->hw_device_ctx = av_buffer_ref(hw_device_ctx);
+        }
+    }
+
+    int ret;
+    if ((ret = avcodec_open2(c, codec, NULL)) < 0)
+    {
+        avcodec_free_context(&c);
+        Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    Napi::Value codecContextObject = AVCodecContextObject::NewInstance(env);
+    AVCodecContextObject *codecContextWrapper = Napi::ObjectWrap<AVCodecContextObject>::Unwrap(codecContextObject.As<Napi::Object>());
+    codecContextWrapper->codecContext = c;
+    return codecContextObject;
 }
 
 Napi::Value AVFrameObject::ToBuffer(const Napi::CallbackInfo &info)

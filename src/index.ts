@@ -88,6 +88,15 @@ export interface AVFrame {
      * @param quality 1-31. Lower is better quality.
      */
     toJpeg(quality: number): Buffer;
+    createEncoder(options: {
+        encoder: string,
+        bitrate: number,
+        timeBaseNum: number,
+        timeBaseDen: number,
+        opts?: {
+            [key: string]: string | number,
+        },
+    }): AVCodecContext;
 }
 
 export interface AVFilter {
@@ -117,15 +126,21 @@ export interface AVCodecContext {
      */
     readonly pixelFormat: string;
     readonly hardwarePixelFormat: string;
+    readonly timeBaseNum: number;
+    readonly timeBaseDen: number;
 
     [Symbol.dispose](): void;
     destroy(): void;
-    sendPacket(packet: AVPacket): Promise<void>;
+    sendPacket(packet: AVPacket): Promise<boolean>;
     receiveFrame(): Promise<AVFrame>;
+    sendFrame(packet: AVFrame): Promise<boolean>;
+    receivePacket(): Promise<AVPacket>;
 }
 
 export interface AVFormatContext {
     readonly metadata: any;
+    readonly timeBaseNum: number;
+    readonly timeBaseDen: number;
 
     [Symbol.dispose](): void;
     open(input: string): void;

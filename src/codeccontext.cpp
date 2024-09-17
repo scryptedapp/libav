@@ -14,32 +14,10 @@ extern "C"
 #include <thread>
 #include <v8.h>
 
-#include "packet.cpp"
+#include "packet.h"
 #include "error.h"
-
-class AVCodecContextObject : public Napi::ObjectWrap<AVCodecContextObject>
-{
-public:
-    static Napi::Object Init(Napi::Env env, Napi::Object exports);
-    static Napi::Object NewInstance(Napi::Env env);
-    static Napi::FunctionReference constructor;
-
-    AVCodecContextObject(const Napi::CallbackInfo &info);
-    ~AVCodecContextObject(); // Explicitly declare the destructor
-
-    enum AVPixelFormat hw_pix_fmt;
-    int videoStreamIndex;
-    AVCodecContext *codecContext;
-    enum AVHWDeviceType hw_device_value;
-
-private:
-    Napi::Value GetHardwareDevice(const Napi::CallbackInfo &info);
-    Napi::Value GetPixelFormat(const Napi::CallbackInfo &info);
-    Napi::Value GetHardwarePixelFormat(const Napi::CallbackInfo &info);
-    Napi::Value ReceiveFrame(const Napi::CallbackInfo &info);
-    Napi::Value SendPacket(const Napi::CallbackInfo &info);
-    Napi::Value Destroy(const Napi::CallbackInfo &info);
-};
+#include "codeccontext.h"
+#include "frame.h"
 
 Napi::FunctionReference AVCodecContextObject::constructor;
 
@@ -78,6 +56,10 @@ Napi::Object AVCodecContextObject::Init(Napi::Env env, Napi::Object exports)
 
                                                                        AVCodecContextObject::InstanceAccessor("hardwarePixelFormat", &AVCodecContextObject::GetHardwarePixelFormat, nullptr),
 
+                                                                       AVCodecContextObject::InstanceAccessor("timeBaseNum", &AVCodecContextObject::GetTimeBaseNum, nullptr),
+
+                                                                       AVCodecContextObject::InstanceAccessor("timeBaseDen", &AVCodecContextObject::GetTimeBaseDen, nullptr),
+
                                                                        InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVCodecContextObject::Destroy),
 
                                                                        InstanceMethod("destroy", &AVCodecContextObject::Destroy),
@@ -85,6 +67,10 @@ Napi::Object AVCodecContextObject::Init(Napi::Env env, Napi::Object exports)
                                                                        InstanceMethod("sendPacket", &AVCodecContextObject::SendPacket),
 
                                                                        InstanceMethod("receiveFrame", &AVCodecContextObject::ReceiveFrame),
+
+                                                                       InstanceMethod("sendFrame", &AVCodecContextObject::SendFrame),
+
+                                                                       InstanceMethod("receivePacket", &AVCodecContextObject::ReceivePacket),
                                                                    });
 
     constructor = Napi::Persistent(func);
@@ -119,8 +105,7 @@ public:
             return;
         }
 
-        // attempt to read frames first, EAGAIN will be returned if data needs to be
-        // sent to decoder.
+        //  EAGAIN will be returned if packets need to be sent to decoder.
         int ret = avcodec_receive_frame(codecContext, frame);
         if (!ret)
         {
@@ -164,6 +149,67 @@ private:
     AVCodecContext *codecContext;
 };
 
+class ReceivePacketWorker : public Napi::AsyncWorker
+{
+public:
+    ReceivePacketWorker(napi_env env, napi_deferred deferred, AVCodecContext *codecContext)
+        : Napi::AsyncWorker(env), deferred(deferred), codecContext(codecContext)
+    {
+    }
+
+    void Execute() override
+    {
+        AVPacket *packet = av_packet_alloc();
+        if (!packet)
+        {
+            SetError("Failed to allocate packet");
+            return;
+        }
+
+        // EAGAIN will be returned if frames needs to be sent to encoder
+        int ret = avcodec_receive_packet(codecContext, packet);
+        if (!ret)
+        {
+            result = packet;
+            return;
+        }
+
+        av_packet_free(&packet);
+        if (ret != AVERROR(EAGAIN))
+        {
+            SetError(AVErrorString(ret));
+        }
+    }
+
+    // This method runs in the main thread after Execute completes successfully
+    void OnOK() override
+    {
+        Napi::Env env = Env();
+        if (!result)
+        {
+            napi_resolve_deferred(Env(), deferred, env.Undefined());
+        }
+        else
+        {
+            napi_resolve_deferred(Env(), deferred, AVPacketObject::NewInstance(env, result));
+        }
+    }
+
+    // This method runs in the main thread if Execute fails
+    void OnError(const Napi::Error &e) override
+    {
+        napi_value error = e.Value();
+
+        // Reject the promise
+        napi_reject_deferred(Env(), deferred, error);
+    }
+
+private:
+    AVPacket *result;
+    napi_deferred deferred;
+    AVCodecContext *codecContext;
+};
+
 Napi::Value AVCodecContextObject::ReceiveFrame(const Napi::CallbackInfo &info)
 {
     Napi::Env env = info.Env();
@@ -179,6 +225,78 @@ Napi::Value AVCodecContextObject::ReceiveFrame(const Napi::CallbackInfo &info)
     // Return the promise to JavaScript
     return Napi::Value(env, promise);
 }
+
+Napi::Value AVCodecContextObject::ReceivePacket(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+    // Create a new promise and get its deferred handle
+    napi_deferred deferred;
+    napi_value promise;
+    napi_create_promise(env, &deferred, &promise);
+
+    // Create and queue the AsyncWorker, passing the deferred handle
+    ReceivePacketWorker *worker = new ReceivePacketWorker(env, deferred, codecContext);
+    worker->Queue();
+
+    // Return the promise to JavaScript
+    return Napi::Value(env, promise);
+}
+
+class SendFrameWorker : public Napi::AsyncWorker
+{
+public:
+    SendFrameWorker(napi_env env, napi_deferred deferred, AVCodecContext *codecContext, AVFrame *frame)
+        : Napi::AsyncWorker(env), deferred(deferred), codecContext(codecContext), frame(frame)
+    {
+    }
+
+    void Execute() override
+    {
+        if (!frame)
+        {
+            SetError("Packet is null");
+            return;
+        }
+
+        int ret = avcodec_send_frame(codecContext, frame);
+
+        if (!ret)
+        {
+            result = true;
+            return;
+        }
+
+        result = false;
+
+        if (ret != AVERROR(EAGAIN))
+        {
+            // what would cause this?
+            SetError(AVErrorString(ret));
+        }
+    }
+
+    // This method runs in the main thread after Execute completes successfully
+    void OnOK() override
+    {
+        Napi::Env env = Env();
+        napi_resolve_deferred(env, deferred, Napi::Boolean::New(env, result));
+    }
+
+    // This method runs in the main thread if Execute fails
+    void OnError(const Napi::Error &e) override
+    {
+        napi_value error = e.Value();
+
+        // Reject the promise
+        napi_reject_deferred(Env(), deferred, error);
+    }
+
+private:
+    bool result;
+    napi_deferred deferred;
+    AVCodecContext *codecContext;
+    AVFrame *frame;
+};
 
 class SendPacketWorker : public Napi::AsyncWorker
 {
@@ -198,11 +316,19 @@ public:
 
         int ret = avcodec_send_packet(codecContext, packet);
 
-        // errors are typically caused by missing codec info
-        // or invalid packets, and may resolve on a later packet.
-        // suppress all errors until a keyframe is sent.
-        if (ret)
+        if (!ret)
         {
+            result = true;
+            return;
+        }
+
+        result = false;
+
+        if (ret != AVERROR(EAGAIN))
+        {
+            // errors are typically caused by missing codec info
+            // or invalid packets, and may resolve on a later packet.
+            // suppress all errors until a keyframe is sent.
             SetError(AVErrorString(ret));
         }
     }
@@ -211,7 +337,7 @@ public:
     void OnOK() override
     {
         Napi::Env env = Env();
-        napi_resolve_deferred(Env(), deferred, env.Undefined());
+        napi_resolve_deferred(env, deferred, Napi::Boolean::New(env, result));
     }
 
     // This method runs in the main thread if Execute fails
@@ -224,6 +350,7 @@ public:
     }
 
 private:
+    bool result;
     napi_deferred deferred;
     AVCodecContext *codecContext;
     AVPacket *packet;
@@ -247,6 +374,30 @@ Napi::Value AVCodecContextObject::SendPacket(const Napi::CallbackInfo &info)
 
     // Create and queue the AsyncWorker, passing the deferred handle
     SendPacketWorker *worker = new SendPacketWorker(env, deferred, codecContext, packet->packet);
+    worker->Queue();
+
+    // Return the promise to JavaScript
+    return Napi::Value(env, promise);
+}
+
+Napi::Value AVCodecContextObject::SendFrame(const Napi::CallbackInfo &info)
+{
+    if (!info.Length())
+    {
+        Napi::TypeError::New(info.Env(), "Frame object expected").ThrowAsJavaScriptException();
+        return info.Env().Undefined();
+    }
+
+    AVFrameObject *frame = Napi::ObjectWrap<AVFrameObject>::Unwrap(info[0].As<Napi::Object>());
+
+    Napi::Env env = info.Env();
+    // Create a new promise and get its deferred handle
+    napi_deferred deferred;
+    napi_value promise;
+    napi_create_promise(env, &deferred, &promise);
+
+    // Create and queue the AsyncWorker, passing the deferred handle
+    SendFrameWorker *worker = new SendFrameWorker(env, deferred, codecContext, frame->frame_);
     worker->Queue();
 
     // Return the promise to JavaScript
@@ -296,4 +447,28 @@ Napi::Value AVCodecContextObject::GetHardwarePixelFormat(const Napi::CallbackInf
         return env.Undefined();
     }
     return Napi::String::New(env, name);
+}
+
+Napi::Value AVCodecContextObject::GetTimeBaseNum(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+
+    if (!codecContext)
+    {
+        return env.Undefined();
+    }
+
+    return Napi::Number::New(env, codecContext->time_base.num);
+}
+
+Napi::Value AVCodecContextObject::GetTimeBaseDen(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+
+    if (!codecContext)
+    {
+        return env.Undefined();
+    }
+
+    return Napi::Number::New(env, codecContext->time_base.den);
 }

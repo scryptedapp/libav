@@ -15,7 +15,8 @@ extern "C"
 #include <v8.h>
 
 #include "filter.cpp"
-#include "codeccontext.cpp"
+#include "codeccontext.h"
+#include "packet.h"
 
 static Napi::FunctionReference logCallbackRef;
 
@@ -135,6 +136,8 @@ public:
     int videoStreamIndex;
 
 private:
+    Napi::Value GetTimeBaseNum(const Napi::CallbackInfo &info);
+    Napi::Value GetTimeBaseDen(const Napi::CallbackInfo &info);
     Napi::Value Open(const Napi::CallbackInfo &info);
     Napi::Value Close(const Napi::CallbackInfo &info);
     Napi::Value CreateDecoder(const Napi::CallbackInfo &info);
@@ -261,6 +264,12 @@ Napi::Object AVFormatContextObject::Init(Napi::Env env, Napi::Object exports)
                                                                   InstanceMethod("createFilter", &AVFormatContextObject::CreateFilter),
 
                                                                   AVFormatContextObject::InstanceAccessor("metadata", &AVFormatContextObject::GetMetadata, nullptr),
+
+                                                                       AVFormatContextObject::InstanceAccessor("timeBaseNum", &AVFormatContextObject::GetTimeBaseNum, nullptr),
+
+                                                                       AVFormatContextObject::InstanceAccessor("timeBaseDen", &AVFormatContextObject::GetTimeBaseDen, nullptr),
+
+
                                                               });
 
     constructor = Napi::Persistent(func);
@@ -627,6 +636,30 @@ Napi::Value AVFormatContextObject::GetMetadata(const Napi::CallbackInfo &info)
     }
 
     return metadata;
+}
+
+Napi::Value AVFormatContextObject::GetTimeBaseNum(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+
+    if (!fmt_ctx_)
+    {
+        return env.Undefined();
+    }
+    AVRational time_base = fmt_ctx_->streams[videoStreamIndex]->time_base;
+    return Napi::Number::New(env, time_base.num);
+}
+
+Napi::Value AVFormatContextObject::GetTimeBaseDen(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+
+    if (!fmt_ctx_)
+    {
+        return env.Undefined();
+    }
+    AVRational time_base = fmt_ctx_->streams[videoStreamIndex]->time_base;
+    return Napi::Number::New(env, time_base.den);
 }
 
 Napi::Object Init(Napi::Env env, Napi::Object exports)

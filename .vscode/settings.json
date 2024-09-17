@@ -12,6 +12,7 @@
         "new": "cpp",
         "execution": "c",
         "array": "cpp",
-        "string_view": "cpp"
+        "string_view": "cpp",
+        "typeinfo": "c"
     }
 }

@@ -4,6 +4,9 @@
             "target_name": "addon",
             "sources": [
                 "src/formatcontext.cpp",
+                "src/codeccontext.cpp",
+                "src/packet.cpp",
+                "src/frame.cpp",
                 "src/error.cpp",
             ],
             "xcode_settings": {
