@@ -33,6 +33,8 @@ private:
     Napi::Value GetWidth(const Napi::CallbackInfo &info);
     Napi::Value GetHeight(const Napi::CallbackInfo &info);
     Napi::Value GetPixelFormat(const Napi::CallbackInfo &info);
+    Napi::Value GetTimeBaseNum(const Napi::CallbackInfo &info);
+    Napi::Value GetTimeBaseDen(const Napi::CallbackInfo &info);
 
     Napi::Value Destroy(const Napi::CallbackInfo &info);
     Napi::Value ToJPEG(const Napi::CallbackInfo &info);

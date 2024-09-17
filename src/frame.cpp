@@ -34,6 +34,10 @@ Napi::Object AVFrameObject::Init(Napi::Env env, Napi::Object exports)
 
                                                                 AVFrameObject::InstanceAccessor("pixelFormat", &AVFrameObject::GetPixelFormat, nullptr),
 
+                                                                AVFrameObject::InstanceAccessor("timeBaseNum", &AVFrameObject::GetTimeBaseNum, nullptr),
+
+                                                                AVFrameObject::InstanceAccessor("timeBaseDen", &AVFrameObject::GetTimeBaseDen, nullptr),
+
                                                                 InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVFrameObject::Destroy),
 
                                                                 InstanceMethod("destroy", &AVFrameObject::Destroy),
@@ -80,27 +84,27 @@ Napi::Value AVFrameObject::ToJPEG(const Napi::CallbackInfo &info)
     if (info.Length() < 1 || !info[0].IsNumber())
     {
         Napi::TypeError::New(env, "String expected").ThrowAsJavaScriptException();
-        return env.Null();
+        return env.Undefined();
     }
 
     if (!frame_)
     {
         Napi::Error::New(env, "Frame object is null").ThrowAsJavaScriptException();
-        return env.Null();
+        return env.Undefined();
     }
 
     const AVCodec *codec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
     if (!codec)
     {
         Napi::Error::New(env, "Failed to find MJPEG codec").ThrowAsJavaScriptException();
-        return env.Null();
+        return env.Undefined();
     }
 
     AVCodecContext *c = avcodec_alloc_context3(codec);
     if (!c)
     {
         Napi::Error::New(env, "Failed to allocate codec context").ThrowAsJavaScriptException();
-        return env.Null();
+        return env.Undefined();
     }
 
     c->bit_rate = 2000000; // This is generally less relevant for single images
@@ -121,14 +125,14 @@ Napi::Value AVFrameObject::ToJPEG(const Napi::CallbackInfo &info)
     {
         avcodec_free_context(&c);
         Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();
-        return env.Null();
+        return env.Undefined();
     }
 
     if ((ret = avcodec_send_frame(c, frame_)) < 0)
     {
         avcodec_free_context(&c);
         Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();
-        return env.Null();
+        return env.Undefined();
     }
 
     AVPacket *pkt = av_packet_alloc();
@@ -136,7 +140,7 @@ Napi::Value AVFrameObject::ToJPEG(const Napi::CallbackInfo &info)
     {
         avcodec_free_context(&c);
         Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();
-        return env.Null();
+        return env.Undefined();
     }
 
     Napi::Buffer<uint8_t> buffer = Napi::Buffer<uint8_t>::Copy(env, pkt->data, pkt->size);
@@ -312,7 +316,7 @@ Napi::Value AVFrameObject::CreateFilter(const Napi::CallbackInfo &info)
     enum AVPixelFormat pix_fmt = codecContextObject && codecContextObject->codecContext->hw_frames_ctx
                                      ? codecContextObject->hw_pix_fmt
                                      : sw_fmt;
-    AVRational time_base = { timeBaseNumValue.As<Napi::Number>().Int32Value(), timeBaseDenValue.As<Napi::Number>().Int32Value() };
+    AVRational time_base = {timeBaseNumValue.As<Napi::Number>().Int32Value(), timeBaseDenValue.As<Napi::Number>().Int32Value()};
 
     char args[512];
     int ret = 0;
@@ -421,13 +425,13 @@ Napi::Value AVFrameObject::ToBuffer(const Napi::CallbackInfo &info)
     if (!frame_)
     {
         Napi::Error::New(env, "Frame object is null").ThrowAsJavaScriptException();
-        return env.Null();
+        return env.Undefined();
     }
 
     if (!frame_->data[0])
     {
         Napi::Error::New(env, "Frame data is null").ThrowAsJavaScriptException();
-        return env.Null();
+        return env.Undefined();
     }
 
     // Calculate the required buffer size
@@ -441,7 +445,7 @@ Napi::Value AVFrameObject::ToBuffer(const Napi::CallbackInfo &info)
     if (!byte_array)
     {
         Napi::Error::New(env, "Failed to allocate memory for byte array").ThrowAsJavaScriptException();
-        return env.Null();
+        return env.Undefined();
     }
 
     int frame_size = frame_->linesize[0] * height;
@@ -476,7 +480,7 @@ Napi::Value AVFrameObject::GetWidth(const Napi::CallbackInfo &info)
     Napi::Env env = info.Env();
     if (!frame_)
     {
-        return env.Null();
+        return env.Undefined();
     }
     return Napi::Number::New(env, frame_->width);
 }
@@ -486,7 +490,7 @@ Napi::Value AVFrameObject::GetHeight(const Napi::CallbackInfo &info)
     Napi::Env env = info.Env();
     if (!frame_)
     {
-        return env.Null();
+        return env.Undefined();
     }
     return Napi::Number::New(env, frame_->height);
 }
@@ -497,9 +501,29 @@ Napi::Value AVFrameObject::GetPixelFormat(const Napi::CallbackInfo &info)
     if (!frame_)
     {
         Napi::Error::New(env, "Frame object is null").ThrowAsJavaScriptException();
-        return env.Null();
+        return env.Undefined();
     }
     enum AVPixelFormat pix_fmt = (enum AVPixelFormat)frame_->format;
     const char *format = av_get_pix_fmt_name(pix_fmt);
     return Napi::String::New(env, format);
+}
+
+Napi::Value AVFrameObject::GetTimeBaseNum(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+    if (!frame_)
+    {
+        return env.Undefined();
+    }
+    return Napi::Number::New(env, frame_->time_base.num);
+}
+
+Napi::Value AVFrameObject::GetTimeBaseDen(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+    if (!frame_)
+    {
+        return env.Undefined();
+    }
+    return Napi::Number::New(env, frame_->time_base.den);
 }
