@@ -97,6 +97,13 @@ export interface AVFrame {
             [key: string]: string | number,
         },
     }): AVCodecContext;
+
+    createFilter(options: {
+        filter: string,
+        timeBaseNum: number,
+        timeBaseDen: number,
+        codecContext?: AVCodecContext,
+    }): AVFilter;
 }
 
 export interface AVFilter {

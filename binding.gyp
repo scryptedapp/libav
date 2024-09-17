@@ -8,6 +8,7 @@
                 "src/packet.cpp",
                 "src/frame.cpp",
                 "src/error.cpp",
+                "src/filter.cpp",
             ],
             "xcode_settings": {
                 "MACOSX_DEPLOYMENT_TARGET": "12.0",

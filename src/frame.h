@@ -38,4 +38,5 @@ private:
     Napi::Value ToJPEG(const Napi::CallbackInfo &info);
     Napi::Value CreateEncoder(const Napi::CallbackInfo &info);
     Napi::Value ToBuffer(const Napi::CallbackInfo &info);
+    Napi::Value CreateFilter(const Napi::CallbackInfo &info);
 };

@@ -6,7 +6,7 @@ async function main() {
 
     ctx.open("rtsp://scrypted-nvr:50757/68c1f365ed3e15b4");
     const decoder = ctx.createDecoder('videotoolbox');
-    let encoder: AVCodecContext|undefined;
+    let encoder: AVCodecContext | undefined;
     console.log('opened', ctx.metadata, decoder.hardwareDevice, decoder.pixelFormat, decoder.hardwarePixelFormat);
 
     while (true) {
@@ -26,6 +26,16 @@ async function main() {
         using frame = await decoder.receiveFrame();
         if (!frame)
             continue;
+
+        // using filter = frame.createFilter({
+        //     filter: 'hwdownload,format=nv12',
+        //     codecContext: decoder,
+        //     timeBaseNum: ctx.timeBaseNum,
+        //     timeBaseDen: ctx.timeBaseDen,
+        // });
+
+        // const softwareFrame = filter.filter(frame);
+        // const data = softwareFrame.toBuffer();
 
         // reusing the jpeg encoder seems to cause several quality loss after the first frame
         if (!encoder) {
