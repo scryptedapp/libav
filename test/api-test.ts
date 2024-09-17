@@ -1,16 +1,22 @@
+import { writeFileSync } from 'fs';
 import { AVCodecContext, createAVFormatContext, setAVLogLevel } from '../src';
 
 async function main() {
     setAVLogLevel('verbose');
-    const ctx = createAVFormatContext();
+    using readContext = createAVFormatContext();
+    using writeContext = createAVFormatContext();
+    writeContext.create('rtp', (a) => {
+        // console.log(a);
+    });
+    let writeStream: number| undefined;
 
-    ctx.open("rtsp://scrypted-nvr:50757/68c1f365ed3e15b4");
-    const decoder = ctx.createDecoder('videotoolbox');
+    readContext.open("rtsp://scrypted-nvr:50757/68c1f365ed3e15b4");
+    using decoder = readContext.createDecoder('videotoolbox');
     let encoder: AVCodecContext | undefined;
-    console.log('opened', ctx.metadata, decoder.hardwareDevice, decoder.pixelFormat, decoder.hardwarePixelFormat);
+    console.log('opened', readContext.metadata, decoder.hardwareDevice, decoder.pixelFormat, decoder.hardwarePixelFormat);
 
     while (true) {
-        using packet = await ctx.readFrame();
+        using packet = await readContext.readFrame();
         if (!packet)
             continue;
         // console.log('isKeyFrame', packet.isKeyFrame);
@@ -42,8 +48,12 @@ async function main() {
             encoder = frame.createEncoder({
                 encoder: 'h264_videotoolbox',
                 bitrate: 2000000,
-                timeBaseNum: ctx.timeBaseNum,
-                timeBaseDen: ctx.timeBaseDen,
+                timeBaseNum: readContext.timeBaseNum,
+                timeBaseDen: readContext.timeBaseDen,
+            });
+
+            writeStream = writeContext.newStream({
+                codecContext: encoder,
             });
         }
 
@@ -59,7 +69,9 @@ async function main() {
             continue;
         }
 
-        console.log('packet size', transcodePacket.size);
+        // console.log('packet size', transcodePacket.size);
+        writeContext.writeFrame(writeStream!, transcodePacket);
+        // break;
     }
 }
 

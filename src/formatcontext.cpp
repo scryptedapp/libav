@@ -9,6 +9,14 @@ extern "C"
 #include <libavfilter/buffersrc.h>
 #include <libavfilter/avfilter.h>
 #include <libavutil/opt.h>
+// rtpenc.h header uses a weird restrict keyword
+#ifndef restrict
+#define restrict
+#include <libavformat/rtpenc.h>
+#undef restrict
+#else
+#include <libavformat/rtpenc.h>
+#endif
 }
 
 #include <thread>
@@ -134,6 +142,7 @@ public:
     static Napi::FunctionReference constructor;
     AVFormatContext *fmt_ctx_;
     int videoStreamIndex;
+    Napi::ThreadSafeFunction callbackRef;
 
 private:
     Napi::Value GetTimeBaseNum(const Napi::CallbackInfo &info);
@@ -143,6 +152,9 @@ private:
     Napi::Value CreateDecoder(const Napi::CallbackInfo &info);
     Napi::Value GetMetadata(const Napi::CallbackInfo &info);
     Napi::Value ReadFrame(const Napi::CallbackInfo &info);
+    Napi::Value Create(const Napi::CallbackInfo &info);
+    Napi::Value NewStream(const Napi::CallbackInfo &info);
+    Napi::Value WriteFrame(const Napi::CallbackInfo &info);
 };
 
 class ReadFrameWorker : public Napi::AsyncWorker
@@ -250,6 +262,13 @@ Napi::Object AVFormatContextObject::Init(Napi::Env env, Napi::Object exports)
     Napi::HandleScope scope(env);
 
     Napi::Function func = DefineClass(env, "AVFormatContext", {
+
+                                                                  AVFormatContextObject::InstanceAccessor("metadata", &AVFormatContextObject::GetMetadata, nullptr),
+
+                                                                  AVFormatContextObject::InstanceAccessor("timeBaseNum", &AVFormatContextObject::GetTimeBaseNum, nullptr),
+
+                                                                  AVFormatContextObject::InstanceAccessor("timeBaseDen", &AVFormatContextObject::GetTimeBaseDen, nullptr),
+
                                                                   InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVFormatContextObject::Close),
 
                                                                   InstanceMethod("open", &AVFormatContextObject::Open),
@@ -260,13 +279,11 @@ Napi::Object AVFormatContextObject::Init(Napi::Env env, Napi::Object exports)
 
                                                                   InstanceMethod("readFrame", &AVFormatContextObject::ReadFrame),
 
-                                                                  AVFormatContextObject::InstanceAccessor("metadata", &AVFormatContextObject::GetMetadata, nullptr),
+                                                                  InstanceMethod("create", &AVFormatContextObject::Create),
 
-                                                                       AVFormatContextObject::InstanceAccessor("timeBaseNum", &AVFormatContextObject::GetTimeBaseNum, nullptr),
+                                                                  InstanceMethod("newStream", &AVFormatContextObject::NewStream),
 
-                                                                       AVFormatContextObject::InstanceAccessor("timeBaseDen", &AVFormatContextObject::GetTimeBaseDen, nullptr),
-
-
+                                                                  InstanceMethod("writeFrame", &AVFormatContextObject::WriteFrame),
                                                               });
 
     constructor = Napi::Persistent(func);
@@ -452,7 +469,6 @@ Napi::Value AVFormatContextObject::Close(const Napi::CallbackInfo &info)
 {
     if (fmt_ctx_)
     {
-        av_log(NULL, AV_LOG_INFO, "Closing AVFormatContext\n");
         avformat_close_input(&fmt_ctx_);
         avformat_free_context(fmt_ctx_);
         fmt_ctx_ = nullptr;
@@ -502,9 +518,201 @@ Napi::Value AVFormatContextObject::GetTimeBaseDen(const Napi::CallbackInfo &info
     return Napi::Number::New(env, time_base.den);
 }
 
+// Custom write function to intercept RTP packet data
+static int write_packet(void *opaque, const uint8_t *buf, int buf_size)
+{
+    AVFormatContextObject *formatContextObject = (AVFormatContextObject *)opaque;
+    // fprintf(stderr, "write_packet called with size: %d\n", buf_size);
+
+    // Call the JavaScript function on the main thread
+    formatContextObject->callbackRef.BlockingCall([buf, buf_size](Napi::Env env, Napi::Function jsCallback)
+                                                  {
+                                                      Napi::Buffer<uint8_t> buffer = Napi::Buffer<uint8_t>::Copy(env, buf, buf_size);
+                                                      jsCallback.Call({buffer});
+                                                      //
+                                                  });
+
+    return buf_size;
+}
+
+// Custom write funct
+Napi::Value AVFormatContextObject::Create(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+
+    if (fmt_ctx_)
+    {
+        Napi::Error::New(env, "Format context already created").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    if (info.Length() < 1 || !info[0].IsString())
+    {
+        Napi::TypeError::New(env, "String expected for argument 0: format").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    if (info.Length() < 2 || !info[1].IsFunction())
+    {
+        Napi::TypeError::New(env, "Function expected for argument 1: callback").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    std::string formatName = info[0].As<Napi::String>().Utf8Value();
+
+    int ret = avformat_alloc_output_context2(&fmt_ctx_, NULL, formatName.c_str(), NULL);
+    if (ret)
+    {
+        Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    // RTP doesn't initialize properly?
+    if (formatName == "rtp")
+    {
+        int MAX_RTP_PACKET_SIZE = 65536;
+        RTPMuxContext *rtp_ctx = (RTPMuxContext *)fmt_ctx_->priv_data;
+        rtp_ctx->max_payload_size = MAX_RTP_PACKET_SIZE - 12;
+        rtp_ctx->buf = (uint8_t *)av_malloc(MAX_RTP_PACKET_SIZE);
+        if (!rtp_ctx->buf)
+        {
+            avformat_free_context(fmt_ctx_);
+            fmt_ctx_ = nullptr;
+            Napi::Error::New(env, "Failed to allocate RTP buffer").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+    }
+
+    // Set up a custom AVIOContext to capture the RTP output
+    int MAX_MEM_SIZE = 1024 * 1024;
+    uint8_t *buffer = (uint8_t *)av_malloc(MAX_MEM_SIZE);
+    if (!buffer)
+    {
+        avformat_free_context(fmt_ctx_);
+        fmt_ctx_ = nullptr;
+        Napi::Error::New(env, "Failed to allocate AVIO context buffer").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    AVIOContext *avio_ctx = avio_alloc_context(buffer, MAX_MEM_SIZE, 1, this, NULL, write_packet, NULL);
+    if (!avio_ctx)
+    {
+        av_free(buffer);
+        avformat_free_context(fmt_ctx_);
+        fmt_ctx_ = nullptr;
+        Napi::Error::New(env, "Failed to create AVIOContext").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    callbackRef = Napi::ThreadSafeFunction::New(
+        env,                          // Environment
+        info[1].As<Napi::Function>(), // JavaScript function to call
+        "napi_write_packet",          // Resource name for diagnostics
+        0,                            // Max queue size (0 = unlimited)
+        1                             // Initial thread count
+    );
+
+    fmt_ctx_->pb = avio_ctx;
+
+    return env.Undefined();
+}
+
+Napi::Value AVFormatContextObject::WriteFrame(const Napi::CallbackInfo &info)
+{
+    // arguments are index and packet
+    Napi::Env env = info.Env();
+
+    if (!fmt_ctx_)
+    {
+        Napi::Error::New(env, "Format context is null").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    if (info.Length() < 2 || !info[0].IsNumber() || !info[1].IsObject())
+    {
+        Napi::TypeError::New(env, "Number expected for argument 0: index and Object expected for argument 1: packet").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    int streamIndex = info[0].As<Napi::Number>().Int32Value();
+
+    Napi::Object packetObject = info[1].As<Napi::Object>();
+    AVPacketObject *avPacketObject = Napi::ObjectWrap<AVPacketObject>::Unwrap(packetObject);
+    AVPacket *packet = avPacketObject->packet;
+
+    if (!packet)
+    {
+        Napi::Error::New(env, "Packet is null").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    packet->stream_index = streamIndex;
+
+    av_write_frame(fmt_ctx_, packet);
+
+    return env.Undefined();
+}
+
+Napi::Value AVFormatContextObject::NewStream(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+    if (!fmt_ctx_)
+    {
+        Napi::Error::New(env, "Format context is null").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    if (info.Length() < 1 || !info[0].IsObject())
+    {
+        Napi::TypeError::New(env, "Object expected for argument 0: codecContext").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    Napi::Object options = info[0].As<Napi::Object>();
+
+    Napi::Value codecContextValue = options.Get("codecContext");
+    if (!codecContextValue.IsObject())
+    {
+        Napi::TypeError::New(env, "Object expected for codecContext").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    AVCodecContextObject *codecContextObject = Napi::ObjectWrap<AVCodecContextObject>::Unwrap(codecContextValue.As<Napi::Object>());
+    AVCodecContext *codecContext = codecContextObject->codecContext;
+
+    // Create a new stream
+    AVStream *stream = avformat_new_stream(fmt_ctx_, NULL);
+    if (!stream)
+    {
+        Napi::Error::New(env, "Failed to create new stream").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    // Set the codec parameters for the new stream
+    AVCodecParameters *codecpar = stream->codecpar;
+    stream->time_base = (AVRational){codecContext->time_base.num, codecContext->time_base.den}; // Set the time base to 25 fps
+
+    avcodec_parameters_from_context(codecpar, codecContext);
+
+    // gpt says supposed to send this but sends empty packet which crashes.
+    // sps/pps seem to be sent correctly though.
+    // may be an issue on mp4 where there's a moov header?
+    // int ret;
+    // if ((ret = avformat_write_header(fmt_ctx_, NULL)) < 0)
+    // {
+    //     avformat_free_context(fmt_ctx_);
+    //     fmt_ctx_ = nullptr;
+    //     Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();
+    //     return env.Undefined();
+    // }
+
+    return Napi::Number::New(env, stream->index);
+}
+
 Napi::Object Init(Napi::Env env, Napi::Object exports)
 {
     av_log_set_level(AV_LOG_QUIET);
+    avformat_network_init();
 
     AVPacketObject::Init(env, exports);
     AVFilterGraphObject::Init(env, exports);

@@ -13,6 +13,15 @@
         "execution": "c",
         "array": "cpp",
         "string_view": "cpp",
-        "typeinfo": "c"
+        "typeinfo": "c",
+        "variant": "cpp",
+        "cstdio": "c",
+        "__hash_table": "cpp",
+        "__tree": "cpp",
+        "forward_list": "cpp",
+        "map": "cpp",
+        "set": "cpp",
+        "unordered_map": "cpp",
+        "unordered_set": "cpp"
     }
 }
