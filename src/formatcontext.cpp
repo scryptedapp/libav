@@ -750,7 +750,8 @@ Napi::Value AVFormatContextObject::NewStream(const Napi::CallbackInfo &info)
 
     // Set the codec parameters for the new stream
     AVCodecParameters *codecpar = stream->codecpar;
-    stream->time_base = (AVRational){codecContext->time_base.num, codecContext->time_base.den}; // Set the time base to 25 fps
+    stream->time_base.num = codecContext->time_base.num;
+    stream->time_base.den = codecContext->time_base.den;
 
     avcodec_parameters_from_context(codecpar, codecContext);
 
