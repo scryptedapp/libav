@@ -9,6 +9,7 @@ extern "C"
 #include <libavfilter/buffersrc.h>
 #include <libavfilter/avfilter.h>
 #include <libavutil/opt.h>
+#include <libavutil/avutil.h>
 // rtpenc.h header uses a weird restrict keyword
 #ifndef restrict
 #define restrict
@@ -141,12 +142,9 @@ public:
     ~AVFormatContextObject(); // Explicitly declare the destructor
     static Napi::FunctionReference constructor;
     AVFormatContext *fmt_ctx_;
-    int videoStreamIndex;
     Napi::ThreadSafeFunction callbackRef;
 
 private:
-    Napi::Value GetTimeBaseNum(const Napi::CallbackInfo &info);
-    Napi::Value GetTimeBaseDen(const Napi::CallbackInfo &info);
     Napi::Value Open(const Napi::CallbackInfo &info);
     Napi::Value Close(const Napi::CallbackInfo &info);
     Napi::Value CreateDecoder(const Napi::CallbackInfo &info);
@@ -156,6 +154,8 @@ private:
     Napi::Value Create(const Napi::CallbackInfo &info);
     Napi::Value NewStream(const Napi::CallbackInfo &info);
     Napi::Value WriteFrame(const Napi::CallbackInfo &info);
+    Napi::Value GetStreams(const Napi::CallbackInfo &info);
+    Napi::Value CreateSDP(const Napi::CallbackInfo &info);
 };
 
 class ReadFrameWorker : public Napi::AsyncWorker
@@ -166,6 +166,7 @@ public:
     napi_deferred deferred;
     AVFormatContextObject *formatContextObject;
     AVCodecContextObject *codecContextObject;
+    int streamIndex;
 
     ReadFrameWorker(napi_env env, napi_deferred deferred, AVFormatContextObject *formatContextObject)
         : Napi::AsyncWorker(env), deferred(deferred), formatContextObject(formatContextObject)
@@ -185,7 +186,7 @@ public:
         }
 
         AVCodecContext *codecContext = nullptr;
-        AVFrame* frame;
+        AVFrame *frame;
         if (codecContextObject)
         {
             codecContext = codecContextObject->codecContext;
@@ -244,13 +245,8 @@ public:
                     return;
                 }
 
-                if (packet->stream_index == formatContextObject->videoStreamIndex)
+                if (packet->stream_index == streamIndex)
                 {
-                    if (!codecContext)
-                    {
-                        packetResult = packet;
-                        return;
-                    }
 
                     ret = avcodec_send_packet(codecContext, packet);
                     // on decoder feed error, try again next packet.
@@ -280,7 +276,8 @@ public:
         {
             napi_resolve_deferred(Env(), deferred, AVPacketObject::NewInstance(env, packetResult));
         }
-        else if (frameResult) {
+        else if (frameResult)
+        {
             napi_resolve_deferred(Env(), deferred, AVFrameObject::NewInstance(env, frameResult));
         }
         else
@@ -325,9 +322,7 @@ Napi::Object AVFormatContextObject::Init(Napi::Env env, Napi::Object exports)
 
                                                                   AVFormatContextObject::InstanceAccessor("metadata", &AVFormatContextObject::GetMetadata, nullptr),
 
-                                                                  AVFormatContextObject::InstanceAccessor("timeBaseNum", &AVFormatContextObject::GetTimeBaseNum, nullptr),
-
-                                                                  AVFormatContextObject::InstanceAccessor("timeBaseDen", &AVFormatContextObject::GetTimeBaseDen, nullptr),
+                                                                  AVFormatContextObject::InstanceAccessor("streams", &AVFormatContextObject::GetStreams, nullptr),
 
                                                                   InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVFormatContextObject::Close),
 
@@ -346,6 +341,8 @@ Napi::Object AVFormatContextObject::Init(Napi::Env env, Napi::Object exports)
                                                                   InstanceMethod("newStream", &AVFormatContextObject::NewStream),
 
                                                                   InstanceMethod("writeFrame", &AVFormatContextObject::WriteFrame),
+
+                                                                  InstanceMethod("createSDP", &AVFormatContextObject::CreateSDP),
                                                               });
 
     constructor = Napi::Persistent(func);
@@ -357,8 +354,7 @@ Napi::Object AVFormatContextObject::Init(Napi::Env env, Napi::Object exports)
 
 AVFormatContextObject::AVFormatContextObject(const Napi::CallbackInfo &info)
     : Napi::ObjectWrap<AVFormatContextObject>(info),
-      fmt_ctx_(nullptr),
-      videoStreamIndex(-1)
+      fmt_ctx_(nullptr)
 {
     // i don't think this constructor is called from js??
 }
@@ -387,16 +383,24 @@ Napi::Value AVFormatContextObject::ReceiveFrame(const Napi::CallbackInfo &info)
     napi_value promise;
     napi_create_promise(env, &deferred, &promise);
 
-    if (info.Length() < 1 || !info[0].IsObject())
+    if (info.Length() < 1 || !info[0].IsNumber())
+    {
+        Napi::TypeError::New(env, "Number expected for argument 1: streamIndex").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+    int streamIndex = info[0].As<Napi::Number>().Int32Value();
+
+    if (info.Length() < 2 || !info[1].IsObject())
     {
         Napi::TypeError::New(env, "Object expected for argument 0: codecContext").ThrowAsJavaScriptException();
         return env.Undefined();
     }
-    AVCodecContextObject *codecContextObject = Napi::ObjectWrap<AVCodecContextObject>::Unwrap(info[0].As<Napi::Object>());
+    AVCodecContextObject *codecContextObject = Napi::ObjectWrap<AVCodecContextObject>::Unwrap(info[1].As<Napi::Object>());
 
     // Create and queue the AsyncWorker, passing the deferred handle
     ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, this);
     worker->codecContextObject = codecContextObject;
+    worker->streamIndex = streamIndex;
     worker->Queue();
 
     // Return the promise to JavaScript
@@ -421,23 +425,6 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
         return env.Undefined();
     }
 
-    const struct AVCodec *codec = nullptr;
-
-    /* find the video stream information */
-    ret = av_find_best_stream(fmt_ctx_, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, 0);
-    if (ret < 0)
-    {
-        Napi::Error::New(env, "Cannot find a video stream in the input file").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-    videoStreamIndex = ret;
-
-    if (videoStreamIndex == -1 || codec == nullptr)
-    {
-        Napi::Error::New(env, "Failed to find a video stream or codec").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
     return env.Undefined();
 }
 
@@ -449,9 +436,16 @@ Napi::Value AVFormatContextObject::CreateDecoder(const Napi::CallbackInfo &info)
         return info.Env().Undefined();
     }
 
+    if (info.Length() < 1 || !info[0].IsNumber())
+    {
+        Napi::TypeError::New(info.Env(), "Number expected for argument 0: streamIndex").ThrowAsJavaScriptException();
+        return info.Env().Undefined();
+    }
+    int streamIndex = info[0].As<Napi::Number>().Int32Value();
+
     Napi::Env env = info.Env();
 
-    AVCodecID codec_id = fmt_ctx_->streams[videoStreamIndex]->codecpar->codec_id;
+    AVCodecID codec_id = fmt_ctx_->streams[streamIndex]->codecpar->codec_id;
     const struct AVCodec *codec = avcodec_find_decoder(codec_id);
     Napi::Object codecContextReturn = AVCodecContextObject::NewInstance(env);
     AVCodecContextObject *codecContextObject = Napi::ObjectWrap<AVCodecContextObject>::Unwrap(codecContextReturn);
@@ -460,15 +454,15 @@ Napi::Value AVFormatContextObject::CreateDecoder(const Napi::CallbackInfo &info)
     int ret;
 
     // args are hardwareDeviceName (optional) hardwareDeviceDecoder (optional)
-    if (info.Length())
+    if (info.Length() > 1)
     {
-        if (!info[0].IsString())
+        if (!info[1].IsString())
         {
             Napi::Error::New(env, "Unexpected type in place of hardware device name string").ThrowAsJavaScriptException();
             return env.Undefined();
         }
 
-        std::string hardwareDeviceName = info[0].As<Napi::String>().Utf8Value();
+        std::string hardwareDeviceName = info[1].As<Napi::String>().Utf8Value();
         codecContextObject->hw_device_value = av_hwdevice_find_type_by_name(hardwareDeviceName.c_str());
         if (codecContextObject->hw_device_value == AV_HWDEVICE_TYPE_NONE)
         {
@@ -477,15 +471,15 @@ Napi::Value AVFormatContextObject::CreateDecoder(const Napi::CallbackInfo &info)
         }
 
         // qsv path
-        if (info.Length() > 1)
+        if (info.Length() > 2)
         {
-            if (!info[1].IsString())
+            if (!info[2].IsString())
             {
                 Napi::Error::New(env, "Unexpected type in place of decoder string").ThrowAsJavaScriptException();
                 return env.Undefined();
             }
 
-            codec = avcodec_find_decoder_by_name(info[1].As<Napi::String>().Utf8Value().c_str());
+            codec = avcodec_find_decoder_by_name(info[2].As<Napi::String>().Utf8Value().c_str());
             if (!codec)
             {
                 Napi::Error::New(env, "Decoder not found").ThrowAsJavaScriptException();
@@ -528,7 +522,7 @@ Napi::Value AVFormatContextObject::CreateDecoder(const Napi::CallbackInfo &info)
         codecContextObject->codecContext->hw_device_ctx = hw_device_ctx;
     }
 
-    if ((ret = avcodec_parameters_to_context(codecContextObject->codecContext, fmt_ctx_->streams[videoStreamIndex]->codecpar)) < 0)
+    if ((ret = avcodec_parameters_to_context(codecContextObject->codecContext, fmt_ctx_->streams[streamIndex]->codecpar)) < 0)
     {
         avcodec_free_context(&codecContextObject->codecContext);
         codecContextObject->codecContext = nullptr;
@@ -578,30 +572,6 @@ Napi::Value AVFormatContextObject::GetMetadata(const Napi::CallbackInfo &info)
     }
 
     return metadata;
-}
-
-Napi::Value AVFormatContextObject::GetTimeBaseNum(const Napi::CallbackInfo &info)
-{
-    Napi::Env env = info.Env();
-
-    if (!fmt_ctx_)
-    {
-        return env.Undefined();
-    }
-    AVRational time_base = fmt_ctx_->streams[videoStreamIndex]->time_base;
-    return Napi::Number::New(env, time_base.num);
-}
-
-Napi::Value AVFormatContextObject::GetTimeBaseDen(const Napi::CallbackInfo &info)
-{
-    Napi::Env env = info.Env();
-
-    if (!fmt_ctx_)
-    {
-        return env.Undefined();
-    }
-    AVRational time_base = fmt_ctx_->streams[videoStreamIndex]->time_base;
-    return Napi::Number::New(env, time_base.den);
 }
 
 // Custom write function to intercept RTP packet data
@@ -793,6 +763,54 @@ Napi::Value AVFormatContextObject::NewStream(const Napi::CallbackInfo &info)
     // }
 
     return Napi::Number::New(env, stream->index);
+}
+
+Napi::Value AVFormatContextObject::GetStreams(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+    Napi::Array streams = Napi::Array::New(env);
+
+    if (!fmt_ctx_)
+    {
+        return streams;
+    }
+
+    for (unsigned int i = 0; i < fmt_ctx_->nb_streams; i++)
+    {
+        AVStream *s = fmt_ctx_->streams[i];
+        Napi::Object stream = Napi::Object::New(env);
+        stream.Set("index", Napi::Number::New(env, s->index));
+        stream.Set("codec", Napi::String::New(env, avcodec_get_name(s->codecpar->codec_id)));
+        stream.Set("type", Napi::String::New(env, av_get_media_type_string(s->codecpar->codec_type)));
+        stream.Set("timeBaseNum", Napi::Number::New(env, s->time_base.num));
+        stream.Set("timeBaseDen", Napi::Number::New(env, s->time_base.den));
+        streams.Set(i, stream);
+    }
+
+    return streams;
+}
+
+Napi::Value AVFormatContextObject::CreateSDP(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+    if (!fmt_ctx_)
+    {
+        Napi::Error::New(env, "Format context is null").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    char sdp[65536];
+    // create array of 1 AVFormatContext
+    AVFormatContext *ctx[1] = {fmt_ctx_};
+    int ret = av_sdp_create(ctx, 1, sdp, sizeof(sdp));
+    if (ret < 0)
+    {
+        Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    Napi::String sdpString = Napi::String::New(env, sdp);
+    return sdpString;
 }
 
 Napi::Object Init(Napi::Env env, Napi::Object exports)

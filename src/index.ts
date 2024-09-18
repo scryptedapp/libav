@@ -144,21 +144,29 @@ export interface AVCodecContext {
     receivePacket(): Promise<AVPacket>;
 }
 
-export interface AVFormatContext {
-    readonly metadata: any;
+export interface AVStream {
+    readonly index: number;
     readonly timeBaseNum: number;
     readonly timeBaseDen: number;
+    readonly codec: string;
+    readonly type: string;
+}
+
+export interface AVFormatContext {
+    readonly metadata: any;
+    readonly streams: AVStream[];
 
     [Symbol.dispose](): void;
     open(input: string): void;
-    createDecoder(hardwareDevice?: string, decoder?: string): AVCodecContext;
+    createDecoder(streamIndex: number, hardwareDevice?: string, decoder?: string): AVCodecContext;
     readFrame(): Promise<AVPacket>;
-    receiveFrame(codecContext: AVCodecContext): Promise<AVFrame>;
+    receiveFrame(streamIndex: number, codecContext: AVCodecContext): Promise<AVFrame>;
     create(format: string, callback: (buffer: Buffer) => void): void;
     newStream(options: {
         codecContext: AVCodecContext,
     }): number;
     writeFrame(streamIndex: number, packet: AVPacket): void;
+    createSDP(): string;
     close(): void;
 }
 

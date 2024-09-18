@@ -4,7 +4,8 @@ async function main() {
     setAVLogLevel('verbose');
     using ctx = createAVFormatContext();
     ctx.open("rtsp://scrypted-nvr:50757/68c1f365ed3e15b4");
-    using decoder = ctx.createDecoder('videotoolbox');
+    const video = ctx.streams.find(s => s.type === 'video')!;
+    using decoder = ctx.createDecoder(video.index, 'videotoolbox');
 
     while (true) {
         using packet = await ctx.readFrame();
@@ -25,8 +26,8 @@ async function main() {
 
         using filter = frame.createFilter({
             filter: 'hwdownload,format=nv12,scale,format=yuvj420p',
-            timeBaseNum: ctx.timeBaseNum,
-            timeBaseDen: ctx.timeBaseDen,
+            timeBaseNum: video.timeBaseNum,
+            timeBaseDen: video.timeBaseDen,
             codecContext: decoder,
         });
         using softwareFrame = filter.filter(frame);
@@ -35,8 +36,8 @@ async function main() {
         using encoder = softwareFrame.createEncoder({
             encoder: 'mjpeg',
             bitrate: 2000000,
-            timeBaseNum: ctx.timeBaseNum,
-            timeBaseDen: ctx.timeBaseDen,
+            timeBaseNum: video.timeBaseNum,
+            timeBaseDen: video.timeBaseDen,
             opts: {
                 quality: 1,
                 qmin: 1,

@@ -3,6 +3,9 @@ import { AVCodecContext, createAVFormatContext, setAVLogLevel } from '../src';
 async function main() {
     setAVLogLevel('verbose');
     using readContext = createAVFormatContext();
+    readContext.open("rtsp://scrypted-nvr:50757/68c1f365ed3e15b4");
+    const video = readContext.streams.find(s => s.type === 'video')!;
+
     using writeContext = createAVFormatContext();
     writeContext.create('rtp', (a) => {
         const naluType = a[12] & 0x1F;
@@ -16,8 +19,7 @@ async function main() {
     });
     let writeStream: number | undefined;
 
-    readContext.open("rtsp://scrypted-nvr:50757/68c1f365ed3e15b4");
-    using decoder = readContext.createDecoder('videotoolbox');
+    using decoder = readContext.createDecoder(video.index, 'videotoolbox');
     let encoder: AVCodecContext | undefined;
 
     while (true) {
@@ -41,8 +43,8 @@ async function main() {
             encoder = frame.createEncoder({
                 encoder: 'h264_videotoolbox',
                 bitrate: 2000000,
-                timeBaseNum: readContext.timeBaseNum,
-                timeBaseDen: readContext.timeBaseDen,
+                timeBaseNum: video.timeBaseNum,
+                timeBaseDen: video.timeBaseDen,
             });
 
             writeStream = writeContext.newStream({
