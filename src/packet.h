@@ -33,6 +33,7 @@ public:
     Napi::Value GetDuration(const Napi::CallbackInfo &info);
     Napi::Value GetSize(const Napi::CallbackInfo &info);
     Napi::Value GetData(const Napi::CallbackInfo &info);
+    Napi::Value GetStreamIndex(const Napi::CallbackInfo &info);
 
     AVPacket *packet;
 };

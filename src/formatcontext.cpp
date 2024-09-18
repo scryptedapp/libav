@@ -161,15 +161,15 @@ private:
 class ReadFrameWorker : public Napi::AsyncWorker
 {
 public:
-    AVPacket *packetResult;
-    AVFrame *frameResult;
     napi_deferred deferred;
     AVFormatContextObject *formatContextObject;
     AVCodecContextObject *codecContextObject;
     int streamIndex;
+    AVPacket *packetResult;
+    AVFrame *frameResult;
 
-    ReadFrameWorker(napi_env env, napi_deferred deferred, AVFormatContextObject *formatContextObject)
-        : Napi::AsyncWorker(env), deferred(deferred), formatContextObject(formatContextObject)
+    ReadFrameWorker(napi_env env, napi_deferred deferred, AVFormatContextObject *formatContextObject, AVCodecContextObject *codecContextObject, int streamIndex)
+        : Napi::AsyncWorker(env), deferred(deferred), formatContextObject(formatContextObject), codecContextObject(codecContextObject), streamIndex(streamIndex)
     {
     }
 
@@ -242,6 +242,12 @@ public:
                 {
                     av_packet_free(&packet);
                     SetError(AVErrorString(ret));
+                    return;
+                }
+
+                if (!codecContext)
+                {
+                    packetResult = packet;
                     return;
                 }
 
@@ -368,7 +374,7 @@ Napi::Value AVFormatContextObject::ReadFrame(const Napi::CallbackInfo &info)
     napi_create_promise(env, &deferred, &promise);
 
     // Create and queue the AsyncWorker, passing the deferred handle
-    ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, this);
+    ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, this, nullptr, 0);
     worker->Queue();
 
     // Return the promise to JavaScript
@@ -398,9 +404,7 @@ Napi::Value AVFormatContextObject::ReceiveFrame(const Napi::CallbackInfo &info)
     AVCodecContextObject *codecContextObject = Napi::ObjectWrap<AVCodecContextObject>::Unwrap(info[1].As<Napi::Object>());
 
     // Create and queue the AsyncWorker, passing the deferred handle
-    ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, this);
-    worker->codecContextObject = codecContextObject;
-    worker->streamIndex = streamIndex;
+    ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, this, codecContextObject, streamIndex);
     worker->Queue();
 
     // Return the promise to JavaScript

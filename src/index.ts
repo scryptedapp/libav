@@ -114,6 +114,7 @@ export interface AVFilter {
 }
 
 export interface AVPacket {
+    readonly streamindex: number;
     readonly isKeyFrame: boolean;
     readonly size: number;
     readonly pts: number;

@@ -34,6 +34,8 @@ Napi::Object AVPacketObject::Init(Napi::Env env, Napi::Object exports)
 
                                                                  AVPacketObject::InstanceAccessor("size", &AVPacketObject::GetSize, nullptr),
 
+                                                                 AVPacketObject::InstanceAccessor("streamIndex", &AVPacketObject::GetStreamIndex, nullptr),
+
                                                                  InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVPacketObject::Destroy),
 
                                                                  InstanceMethod("clone", &AVPacketObject::Clone),
@@ -138,4 +140,9 @@ Napi::Value AVPacketObject::GetData(const Napi::CallbackInfo &info)
 
     Napi::Buffer<uint8_t> buffer = Napi::Buffer<uint8_t>::Copy(info.Env(), packet->data, packet->size);
     return buffer;
+}
+
+Napi::Value AVPacketObject::GetStreamIndex(const Napi::CallbackInfo &info)
+{
+    return Napi::Number::New(info.Env(), packet ? packet->stream_index : -1);
 }
