@@ -102,7 +102,6 @@ export interface AVFrame {
         filter: string,
         timeBaseNum: number,
         timeBaseDen: number,
-        codecContext?: AVCodecContext,
     }): AVFilter;
 }
 

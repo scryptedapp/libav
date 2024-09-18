@@ -304,18 +304,12 @@ Napi::Value AVFrameObject::CreateFilter(const Napi::CallbackInfo &info)
 
     std::string filter_descr = filterValue.As<Napi::String>().Utf8Value();
 
-    Napi::Value codecContextValue = options.Get("codecContext");
-    AVCodecContextObject *codecContextObject = nullptr;
-
-    if (codecContextValue.IsObject())
+    enum AVPixelFormat pix_fmt = AV_PIX_FMT_YUVJ420P;
+    if (frame_->hw_frames_ctx)
     {
-        codecContextObject = Napi::ObjectWrap<AVCodecContextObject>::Unwrap(codecContextValue.As<Napi::Object>());
+        AVHWFramesContext *frames_ctx = (AVHWFramesContext *)(frame_->hw_frames_ctx->data);
+        pix_fmt = frames_ctx->format;
     }
-
-    enum AVPixelFormat sw_fmt = AV_PIX_FMT_YUVJ420P;
-    enum AVPixelFormat pix_fmt = codecContextObject && codecContextObject->codecContext->hw_frames_ctx
-                                     ? codecContextObject->hw_pix_fmt
-                                     : sw_fmt;
     AVRational time_base = {timeBaseNumValue.As<Napi::Number>().Int32Value(), timeBaseDenValue.As<Napi::Number>().Int32Value()};
 
     char args[512];
@@ -386,10 +380,9 @@ Napi::Value AVFrameObject::CreateFilter(const Napi::CallbackInfo &info)
         goto end;
     }
 
-    // 2. Create a hardware frame context from the device context
-    if (codecContextObject && codecContextObject->codecContext->hw_frames_ctx)
+    if (frame_->hw_frames_ctx)
     {
-        src_params->hw_frames_ctx = av_buffer_ref(codecContextObject->codecContext->hw_frames_ctx);
+        src_params->hw_frames_ctx = av_buffer_ref(frame_->hw_frames_ctx);
     }
 
     ret = av_buffersrc_parameters_set(buffersrc_ctx, src_params);

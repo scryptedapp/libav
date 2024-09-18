@@ -28,7 +28,6 @@ async function main() {
             filter: 'hwdownload,format=nv12,scale,format=yuvj420p',
             timeBaseNum: video.timeBaseNum,
             timeBaseDen: video.timeBaseDen,
-            codecContext: decoder,
         });
         using softwareFrame = filter.filter(frame);
 
