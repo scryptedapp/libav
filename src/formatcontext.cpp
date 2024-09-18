@@ -152,6 +152,7 @@ private:
     Napi::Value CreateDecoder(const Napi::CallbackInfo &info);
     Napi::Value GetMetadata(const Napi::CallbackInfo &info);
     Napi::Value ReadFrame(const Napi::CallbackInfo &info);
+    Napi::Value ReceiveFrame(const Napi::CallbackInfo &info);
     Napi::Value Create(const Napi::CallbackInfo &info);
     Napi::Value NewStream(const Napi::CallbackInfo &info);
     Napi::Value WriteFrame(const Napi::CallbackInfo &info);
@@ -160,6 +161,12 @@ private:
 class ReadFrameWorker : public Napi::AsyncWorker
 {
 public:
+    AVPacket *packetResult;
+    AVFrame *frameResult;
+    napi_deferred deferred;
+    AVFormatContextObject *formatContextObject;
+    AVCodecContextObject *codecContextObject;
+
     ReadFrameWorker(napi_env env, napi_deferred deferred, AVFormatContextObject *formatContextObject)
         : Napi::AsyncWorker(env), deferred(deferred), formatContextObject(formatContextObject)
     {
@@ -167,6 +174,9 @@ public:
 
     void Execute() override
     {
+        frameResult = nullptr;
+        packetResult = nullptr;
+
         AVFormatContext *fmt_ctx_ = formatContextObject->fmt_ctx_;
         if (!fmt_ctx_)
         {
@@ -174,8 +184,20 @@ public:
             return;
         }
 
+        AVCodecContext *codecContext = nullptr;
+        AVFrame* frame;
+        if (codecContextObject)
+        {
+            codecContext = codecContextObject->codecContext;
+            if (!codecContext)
+            {
+                SetError("Codec context is null");
+                return;
+            }
+            frame = av_frame_alloc();
+        }
+
         AVPacket *packet = av_packet_alloc();
-        int ret;
 
         if (!packet)
         {
@@ -183,30 +205,70 @@ public:
             return;
         }
 
+        int ret;
         while (true)
         {
-            ret = av_read_frame(fmt_ctx_, packet);
-            if (ret == AVERROR(EAGAIN))
+            if (codecContext)
             {
-                // try reading again later
-                av_packet_free(&packet);
-                result = nullptr;
-                return;
-            }
-            else if (ret)
-            {
-                av_packet_free(&packet);
-                SetError(AVErrorString(ret));
-                return;
+                // attempt to read frames first, EAGAIN will be returned if data needs to be
+                // sent to decoder.
+                ret = avcodec_receive_frame(codecContext, frame);
+                if (!ret)
+                {
+                    // printf("returning frame 0\n");
+                    av_packet_free(&packet);
+                    frameResult = frame;
+                    return;
+                }
+                else if (ret != AVERROR(EAGAIN))
+                {
+                    av_packet_free(&packet);
+                    SetError(AVErrorString(ret));
+                    return;
+                }
             }
 
-            if (packet->stream_index == formatContextObject->videoStreamIndex)
+            while (true)
             {
-                result = packet;
-                break;
+                ret = av_read_frame(fmt_ctx_, packet);
+                if (ret == AVERROR(EAGAIN))
+                {
+                    // try reading again later
+                    av_packet_free(&packet);
+                    return;
+                }
+                else if (ret)
+                {
+                    av_packet_free(&packet);
+                    SetError(AVErrorString(ret));
+                    return;
+                }
+
+                if (packet->stream_index == formatContextObject->videoStreamIndex)
+                {
+                    if (!codecContext)
+                    {
+                        packetResult = packet;
+                        return;
+                    }
+
+                    ret = avcodec_send_packet(codecContext, packet);
+                    // on decoder feed error, try again next packet.
+                    // could be starting on a non keyframe or data corruption
+                    // which may be recoverable.
+                    if (ret)
+                    {
+                        av_packet_free(&packet);
+                        return;
+                    }
+
+                    break;
+                }
+
+                av_packet_unref(packet);
             }
-            // not video so keep looping.
-            av_packet_unref(packet);
+
+            // try reading frame again
         }
     }
 
@@ -214,13 +276,16 @@ public:
     void OnOK() override
     {
         Napi::Env env = Env();
-        if (!result)
+        if (packetResult)
         {
-            napi_resolve_deferred(Env(), deferred, env.Undefined());
+            napi_resolve_deferred(Env(), deferred, AVPacketObject::NewInstance(env, packetResult));
+        }
+        else if (frameResult) {
+            napi_resolve_deferred(Env(), deferred, AVFrameObject::NewInstance(env, frameResult));
         }
         else
         {
-            napi_resolve_deferred(Env(), deferred, AVPacketObject::NewInstance(env, result));
+            napi_resolve_deferred(Env(), deferred, env.Undefined());
         }
     }
 
@@ -232,11 +297,6 @@ public:
         // Reject the promise
         napi_reject_deferred(Env(), deferred, error);
     }
-
-private:
-    AVPacket *result;
-    napi_deferred deferred;
-    AVFormatContextObject *formatContextObject;
 };
 
 static enum AVPixelFormat get_hw_format(AVCodecContext *ctx,
@@ -279,6 +339,8 @@ Napi::Object AVFormatContextObject::Init(Napi::Env env, Napi::Object exports)
 
                                                                   InstanceMethod("readFrame", &AVFormatContextObject::ReadFrame),
 
+                                                                  InstanceMethod("receiveFrame", &AVFormatContextObject::ReceiveFrame),
+
                                                                   InstanceMethod("create", &AVFormatContextObject::Create),
 
                                                                   InstanceMethod("newStream", &AVFormatContextObject::NewStream),
@@ -311,6 +373,30 @@ Napi::Value AVFormatContextObject::ReadFrame(const Napi::CallbackInfo &info)
 
     // Create and queue the AsyncWorker, passing the deferred handle
     ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, this);
+    worker->Queue();
+
+    // Return the promise to JavaScript
+    return Napi::Value(env, promise);
+}
+
+Napi::Value AVFormatContextObject::ReceiveFrame(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+    // Create a new promise and get its deferred handle
+    napi_deferred deferred;
+    napi_value promise;
+    napi_create_promise(env, &deferred, &promise);
+
+    if (info.Length() < 1 || !info[0].IsObject())
+    {
+        Napi::TypeError::New(env, "Object expected for argument 0: codecContext").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+    AVCodecContextObject *codecContextObject = Napi::ObjectWrap<AVCodecContextObject>::Unwrap(info[0].As<Napi::Object>());
+
+    // Create and queue the AsyncWorker, passing the deferred handle
+    ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, this);
+    worker->codecContextObject = codecContextObject;
     worker->Queue();
 
     // Return the promise to JavaScript

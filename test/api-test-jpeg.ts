@@ -2,7 +2,7 @@ import fs from 'fs';
 import { setAVLogLevel, createAVFormatContext, AVCodecContext } from '../src';
 
 async function main() {
-    setAVLogLevel('verbose');
+    setAVLogLevel('trace');
     const ctx = createAVFormatContext();
 
     ctx.open("rtsp://scrypted-nvr:50757/68c1f365ed3e15b4");
@@ -27,7 +27,12 @@ async function main() {
         if (!frame)
             continue;
 
-        using filter = ctx.createFilter(frame.width, frame.height, 'hwdownload,format=nv12,scale,format=yuvj420p', decoder);
+        using filter = frame.createFilter({
+            filter: 'hwdownload,format=nv12,scale,format=yuvj420p',
+            timeBaseNum: ctx.timeBaseNum,
+            timeBaseDen: ctx.timeBaseDen,
+            codecContext: decoder,
+        });
         using softwareFrame = filter.filter(frame);
 
         // reusing a jpeg encoder seems to cause several quality loss after the first frame
@@ -43,7 +48,7 @@ async function main() {
             }
         });
 
-        const sent = await encoder.sendFrame(frame);
+        const sent = await encoder.sendFrame(softwareFrame);
         if (!sent) {
             console.error('sendFrame failed');
             continue;

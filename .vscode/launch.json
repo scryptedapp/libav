@@ -9,7 +9,7 @@
             "type": "node",
             "request": "launch",
             "args": [
-                "${workspaceRoot}/test/api-test.ts"
+                "${workspaceRoot}/test/context-decode-frames-encode.ts"
             ],
             "preLaunchTask": "npm: build",
             "runtimeArgs": [

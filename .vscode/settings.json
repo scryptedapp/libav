@@ -1,27 +1,9 @@
 {
     "files.associations": {
         "*.yml": "yaml",
-        "__locale": "cpp",
-        "ios": "cpp",
-        "__split_buffer": "cpp",
-        "deque": "cpp",
-        "list": "cpp",
+        "locale": "cpp",
+        "regex": "cpp",
         "string": "cpp",
-        "vector": "cpp",
-        "stdexcept": "cpp",
-        "new": "cpp",
-        "execution": "c",
-        "array": "cpp",
-        "string_view": "cpp",
-        "typeinfo": "c",
-        "variant": "cpp",
-        "cstdio": "c",
-        "__hash_table": "cpp",
-        "__tree": "cpp",
-        "forward_list": "cpp",
-        "map": "cpp",
-        "set": "cpp",
-        "unordered_map": "cpp",
-        "unordered_set": "cpp"
+        "__locale": "cpp"
     }
 }

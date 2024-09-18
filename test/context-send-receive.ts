@@ -1,4 +1,3 @@
-import { writeFileSync } from 'fs';
 import { AVCodecContext, createAVFormatContext, setAVLogLevel } from '../src';
 
 async function main() {
@@ -23,34 +22,10 @@ async function main() {
     console.log('opened', readContext.metadata, decoder.hardwareDevice, decoder.pixelFormat, decoder.hardwarePixelFormat);
 
     while (true) {
-        using packet = await readContext.readFrame();
-        if (!packet)
-            continue;
-        // console.log('isKeyFrame', packet.isKeyFrame);
-
-        try {
-            await decoder.sendPacket(packet);
-        }
-        catch (e) {
-            console.error('sendPacket error (recoverable)', e);
-            continue;
-        }
-
-        using frame = await decoder.receiveFrame();
+        using frame = await readContext.receiveFrame(decoder);
         if (!frame)
             continue;
 
-        // using filter = frame.createFilter({
-        //     filter: 'hwdownload,format=nv12',
-        //     codecContext: decoder,
-        //     timeBaseNum: ctx.timeBaseNum,
-        //     timeBaseDen: ctx.timeBaseDen,
-        // });
-
-        // const softwareFrame = filter.filter(frame);
-        // const data = softwareFrame.toBuffer();
-
-        // reusing the jpeg encoder seems to cause several quality loss after the first frame
         if (!encoder) {
             encoder = frame.createEncoder({
                 encoder: 'h264_videotoolbox',
@@ -76,9 +51,7 @@ async function main() {
             continue;
         }
 
-        // console.log('packet size', transcodePacket.size);
         writeContext.writeFrame(writeStream!, transcodePacket);
-        // break;
     }
 }
 

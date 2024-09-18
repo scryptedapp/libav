@@ -153,6 +153,7 @@ export interface AVFormatContext {
     open(input: string): void;
     createDecoder(hardwareDevice?: string, decoder?: string): AVCodecContext;
     readFrame(): Promise<AVPacket>;
+    receiveFrame(codecContext: AVCodecContext): Promise<AVFrame>;
     create(format: string, callback: (buffer: Buffer) => void): void;
     newStream(options: {
         codecContext: AVCodecContext,

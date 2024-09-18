@@ -257,6 +257,11 @@ public:
             SetError("Packet is null");
             return;
         }
+        if (!codecContext)
+        {
+            SetError("Codec Context is null");
+            return;
+        }
 
         int ret = avcodec_send_frame(codecContext, frame);
 
@@ -382,7 +387,7 @@ Napi::Value AVCodecContextObject::SendPacket(const Napi::CallbackInfo &info)
 
 Napi::Value AVCodecContextObject::SendFrame(const Napi::CallbackInfo &info)
 {
-    if (!info.Length())
+    if (!info.Length() || !info[0].IsObject())
     {
         Napi::TypeError::New(info.Env(), "Frame object expected").ThrowAsJavaScriptException();
         return info.Env().Undefined();
