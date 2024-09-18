@@ -27,7 +27,7 @@ async function main() {
         if (!packet)
             continue;
 
-        if (packet.streamindex !== video.index)
+        if (packet.streamIndex !== video.index)
             continue;
 
         try {
