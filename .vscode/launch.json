@@ -9,7 +9,7 @@
             "type": "node",
             "request": "launch",
             "args": [
-                "${workspaceRoot}/test/api-test-jpeg.ts"
+                "${workspaceRoot}/test/read-receive-send-receive.ts"
             ],
             "preLaunchTask": "npm: build",
             "runtimeArgs": [

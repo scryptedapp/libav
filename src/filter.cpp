@@ -81,13 +81,13 @@ Napi::Value AVFilterGraphObject::SetCrop(const Napi::CallbackInfo &info)
     // reset the x and y to zero so all widths and heights may be valid.
     if (avfilter_graph_send_command(filterGraph, "crop", "x", "0", 0, 0, 0) < 0)
     {
-        Napi::Error::New(info.Env(), "Error while sending crop command (x)").ThrowAsJavaScriptException();
+        Napi::Error::New(info.Env(), "Error while sending crop command (x reset)").ThrowAsJavaScriptException();
         return info.Env().Undefined();
     }
 
     if (avfilter_graph_send_command(filterGraph, "crop", "y", "0", 0, 0, 0) < 0)
     {
-        Napi::Error::New(info.Env(), "Error while sending crop command (y)").ThrowAsJavaScriptException();
+        Napi::Error::New(info.Env(), "Error while sending crop command (y reset)").ThrowAsJavaScriptException();
         return info.Env().Undefined();
     }
 
