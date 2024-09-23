@@ -77,41 +77,48 @@ Napi::Value AVFilterGraphObject::SetCrop(const Napi::CallbackInfo &info)
     std::string top = info[1].As<Napi::String>().Utf8Value();
     std::string width = info[2].As<Napi::String>().Utf8Value();
     std::string height = info[3].As<Napi::String>().Utf8Value();
+    int ret;
 
     // reset the x and y to zero so all widths and heights may be valid.
-    if (avfilter_graph_send_command(filterGraph, "crop", "x", "0", 0, 0, 0) < 0)
+    if ((ret = avfilter_graph_send_command(filterGraph, "crop", "x", "0", 0, 0, 0)) < 0)
     {
-        Napi::Error::New(info.Env(), "Error while sending crop command (x reset)").ThrowAsJavaScriptException();
+        av_log(NULL, AV_LOG_ERROR, "Error while sending crop command (x reset)\n");
+        Napi::Error::New(info.Env(), AVErrorString(ret)).ThrowAsJavaScriptException();
         return info.Env().Undefined();
     }
 
-    if (avfilter_graph_send_command(filterGraph, "crop", "y", "0", 0, 0, 0) < 0)
+    if ((ret = avfilter_graph_send_command(filterGraph, "crop", "y", "0", 0, 0, 0)) < 0)
     {
-        Napi::Error::New(info.Env(), "Error while sending crop command (y reset)").ThrowAsJavaScriptException();
+        av_log(NULL, AV_LOG_ERROR, "Error while sending crop command (y reset)\n");
+        Napi::Error::New(info.Env(), AVErrorString(ret)).ThrowAsJavaScriptException();
         return info.Env().Undefined();
     }
 
-    if (avfilter_graph_send_command(filterGraph, "crop", "w", width.c_str(), 0, 0, 0) < 0)
+    if ((ret = avfilter_graph_send_command(filterGraph, "crop", "w", width.c_str(), 0, 0, 0)) < 0)
     {
-        Napi::Error::New(info.Env(), "Error while sending crop command (w)").ThrowAsJavaScriptException();
+        av_log(NULL, AV_LOG_ERROR, "Error while sending crop command (w)\n");
+        Napi::Error::New(info.Env(), AVErrorString(ret)).ThrowAsJavaScriptException();
         return info.Env().Undefined();
     }
 
-    if (avfilter_graph_send_command(filterGraph, "crop", "h", height.c_str(), 0, 0, 0) < 0)
+    if ((ret = avfilter_graph_send_command(filterGraph, "crop", "h", height.c_str(), 0, 0, 0)) < 0)
     {
-        Napi::Error::New(info.Env(), "Error while sending crop command (h)").ThrowAsJavaScriptException();
+        av_log(NULL, AV_LOG_ERROR, "Error while sending crop command (h)\n");
+        Napi::Error::New(info.Env(), AVErrorString(ret)).ThrowAsJavaScriptException();
         return info.Env().Undefined();
     }
 
-    if (avfilter_graph_send_command(filterGraph, "crop", "x", left.c_str(), 0, 0, 0) < 0)
+    if ((ret = avfilter_graph_send_command(filterGraph, "crop", "x", left.c_str(), 0, 0, 0)) < 0)
     {
-        Napi::Error::New(info.Env(), "Error while sending crop command (x)").ThrowAsJavaScriptException();
+        av_log(NULL, AV_LOG_ERROR, "Error while sending crop command (x)\n");
+        Napi::Error::New(info.Env(), AVErrorString(ret)).ThrowAsJavaScriptException();
         return info.Env().Undefined();
     }
 
-    if (avfilter_graph_send_command(filterGraph, "crop", "y", top.c_str(), 0, 0, 0) < 0)
+    if ((ret = avfilter_graph_send_command(filterGraph, "crop", "y", top.c_str(), 0, 0, 0)) < 0)
     {
-        Napi::Error::New(info.Env(), "Error while sending crop command (y)").ThrowAsJavaScriptException();
+        av_log(NULL, AV_LOG_ERROR, "Error while sending crop command (y)\n");
+        Napi::Error::New(info.Env(), AVErrorString(ret)).ThrowAsJavaScriptException();
         return info.Env().Undefined();
     }
 
@@ -146,7 +153,7 @@ Napi::Value AVFilterGraphObject::Filter(const Napi::CallbackInfo &info)
     int ret = av_buffersrc_add_frame_flags(buffersrc_ctx, frame, AV_BUFFERSRC_FLAG_KEEP_REF);
     if (ret < 0)
     {
-        Napi::Error::New(info.Env(), "Error while feeding the filter graph").ThrowAsJavaScriptException();
+        Napi::Error::New(info.Env(), AVErrorString(ret)).ThrowAsJavaScriptException();
         return info.Env().Undefined();
     }
 
@@ -170,7 +177,7 @@ Napi::Value AVFilterGraphObject::Filter(const Napi::CallbackInfo &info)
     if (ret < 0)
     {
         av_frame_free(&filtered_frame);
-        Napi::Error::New(info.Env(), "Error while getting the filtered frame").ThrowAsJavaScriptException();
+        Napi::Error::New(info.Env(), AVErrorString(ret)).ThrowAsJavaScriptException();
         return info.Env().Undefined();
     }
 

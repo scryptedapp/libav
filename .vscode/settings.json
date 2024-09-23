@@ -4,6 +4,8 @@
         "locale": "cpp",
         "regex": "cpp",
         "string": "cpp",
-        "__locale": "cpp"
+        "__locale": "cpp",
+        "stdexcept": "cpp",
+        "__config": "c"
     }
 }
