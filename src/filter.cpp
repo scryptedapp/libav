@@ -24,23 +24,311 @@ Napi::Object AVFilterGraphObject::Init(Napi::Env env, Napi::Object exports)
 
                                                                       InstanceMethod("destroy", &AVFilterGraphObject::Destroy),
 
-                                                                      InstanceMethod("filter", &AVFilterGraphObject::Filter),
+                                                                      InstanceMethod("addFrame", &AVFilterGraphObject::AddFrame),
 
-                                                                      InstanceMethod("setCrop", &AVFilterGraphObject::SetCrop)});
+                                                                      InstanceMethod("getFrame", &AVFilterGraphObject::GetFrame),
+
+                                                                      InstanceMethod("sendCommand", &AVFilterGraphObject::SendCommand)});
 
     constructor = Napi::Persistent(func);
     constructor.SuppressDestruct();
+
+    exports.Set("AVFilter", func);
+
     return exports;
 }
 
 AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
     : Napi::ObjectWrap<AVFilterGraphObject>(info), filterGraph(nullptr)
 {
-    filterGraph = avfilter_graph_alloc();
-    if (!filterGraph)
+    filterGraph = nullptr;
+
+    Napi::Env env = info.Env();
+
+    if (info.Length() < 1 || !info[0].IsObject())
     {
-        Napi::Error::New(info.Env(), "Could not allocate filter graph").ThrowAsJavaScriptException();
+        Napi::TypeError::New(env, "Object expected for argument 0: options").ThrowAsJavaScriptException();
+        return;
     }
+
+    // need filter, frames
+    Napi::Object options = info[0].As<Napi::Object>();
+
+    Napi::Value filterValue = options.Get("filter");
+    if (!filterValue.IsString())
+    {
+        Napi::TypeError::New(env, "String expected for filter").ThrowAsJavaScriptException();
+        return;
+    }
+
+    std::string hardwareDevice;
+    Napi::Value hardwareDeviceValue = options.Get("hardwareDevice");
+    if (hardwareDeviceValue.IsString())
+    {
+        hardwareDevice = hardwareDeviceValue.As<Napi::String>().Utf8Value();
+    }
+
+    std::string hardwareDeviceName;
+    Napi::Value hardwareDeviceNameValue = options.Get("hardwareDeviceName");
+    if (hardwareDeviceNameValue.IsString())
+    {
+        hardwareDeviceName = hardwareDeviceNameValue.As<Napi::String>().Utf8Value();
+    }
+
+    Napi::Value framesValue = options.Get("frames");
+    if (!framesValue.IsArray())
+    {
+        Napi::TypeError::New(env, "Array expected for frames").ThrowAsJavaScriptException();
+        return;
+    }
+    std::vector<AVFrame *> frames;
+    std::vector<Napi::Object> timeBases;
+    Napi::Array framesArray = framesValue.As<Napi::Array>();
+    for (unsigned int i = 0; i < framesArray.Length(); i++)
+    {
+        Napi::Value frameValue = framesArray.Get(i);
+        if (!frameValue.IsObject())
+        {
+            Napi::TypeError::New(env, "Object expected for frames").ThrowAsJavaScriptException();
+            return;
+        }
+        Napi::Value timebaseValue = frameValue.As<Napi::Object>().Get("timeBase");
+        if (!timebaseValue.IsObject())
+        {
+            Napi::TypeError::New(env, "Object expected for timeBase").ThrowAsJavaScriptException();
+            return;
+        }
+        Napi::Object timebaseObject = timebaseValue.As<Napi::Object>();
+        // validate the timebase object
+        if (!timebaseObject.Has("timeBaseNum") || !timebaseObject.Get("timeBaseNum").IsNumber() ||
+            !timebaseObject.Has("timeBaseDen") || !timebaseObject.Get("timeBaseDen").IsNumber())
+        {
+            Napi::TypeError::New(env, "invalid object for timeBase").ThrowAsJavaScriptException();
+            return;
+        }
+
+        timeBases.push_back(timebaseObject);
+
+        Napi::Value frameFrameValue = frameValue.As<Napi::Object>().Get("frame");
+        if (!frameFrameValue.IsObject())
+        {
+            Napi::TypeError::New(env, "Object expected for frame").ThrowAsJavaScriptException();
+            return;
+        }
+        AVFrameObject *frameObject = Napi::ObjectWrap<AVFrameObject>::Unwrap(frameFrameValue.As<Napi::Object>());
+        frames.push_back(frameObject->frame_);
+    }
+
+    // outCount is the number of output frames
+    Napi::Value outCountValue = options.Get("outCount");
+    unsigned int outCount = 1;
+    if (outCountValue.IsNumber())
+    {
+        outCount = outCountValue.As<Napi::Number>().Int32Value();
+    }
+
+    std::string filter_descr = filterValue.As<Napi::String>().Utf8Value();
+
+    char args[512];
+    int ret = 0;
+    const AVFilter *buffersrc = avfilter_get_by_name("buffer");
+    const AVFilter *buffersink = avfilter_get_by_name("buffersink");
+    AVFilterInOut *outputs = nullptr;
+    AVFilterInOut *inputs = nullptr;
+
+    struct AVFilterGraph *filter_graph = avfilter_graph_alloc();
+    avfilter_graph_set_auto_convert(filter_graph, AVFILTER_AUTO_CONVERT_NONE);
+    if (!filter_graph)
+    {
+        Napi::Error::New(env, "filter graph creation failed").ThrowAsJavaScriptException();
+        goto end;
+    }
+
+    for (unsigned int i = 0; i < frames.size(); i++)
+    {
+        AVFrame *frame_ = frames[i];
+        Napi::Object timeBase = timeBases[i];
+        int timeBaseNum = timeBase.Get("timeBaseNum").As<Napi::Number>().Int32Value();
+        int timeBaseDen = timeBase.Get("timeBaseDen").As<Napi::Number>().Int32Value();
+
+        enum AVPixelFormat pix_fmt = AV_PIX_FMT_YUVJ420P;
+        if (frame_->hw_frames_ctx)
+        {
+            AVHWFramesContext *frames_ctx = (AVHWFramesContext *)(frame_->hw_frames_ctx->data);
+            pix_fmt = frames_ctx->format;
+        }
+
+        snprintf(args, sizeof(args),
+                 "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
+                 frame_->width, frame_->height, pix_fmt,
+                 timeBaseNum, timeBaseDen,
+                 1, 1);
+
+        char name[512];
+        snprintf(name, sizeof(name), frames.size() == 1 ? "in" : "in%d", i);
+        AVFilterContext *buffersrc_ctx;
+        ret = avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, name,
+                                           args, NULL, filter_graph);
+        if (ret < 0)
+        {
+            Napi::Error::New(env, "Cannot create buffer source").ThrowAsJavaScriptException();
+            goto end;
+        }
+
+        buffersrc_ctxs.push_back(buffersrc_ctx);
+
+        AVFilterInOut *output = avfilter_inout_alloc();
+        if (!output)
+        {
+            Napi::Error::New(env, "Cannot allocate output").ThrowAsJavaScriptException();
+            goto end;
+        }
+        output->name = av_strdup(name);
+        output->filter_ctx = buffersrc_ctx;
+        output->pad_idx = 0;
+        output->next = NULL;
+
+        if (!outputs)
+        {
+            outputs = output;
+        }
+        else
+        {
+            AVFilterInOut *lastOutput = outputs;
+            while (lastOutput->next)
+            {
+                lastOutput = lastOutput->next;
+            }
+            lastOutput->next = output;
+        }
+    }
+
+    for (unsigned int i = 0; i < outCount; i++)
+    {
+        char name[512];
+        snprintf(name, sizeof(name), outCount == 1 ? "out" : "out%d", i);
+
+        AVFilterContext *buffersink_ctx;
+        ret = avfilter_graph_create_filter(&buffersink_ctx, buffersink, name,
+                                           NULL, NULL, filter_graph);
+        if (ret < 0)
+        {
+            Napi::Error::New(env, "Cannot create buffer sink").ThrowAsJavaScriptException();
+            goto end;
+        }
+
+        buffersink_ctxs.push_back(buffersink_ctx);
+
+        AVFilterInOut *input = avfilter_inout_alloc();
+        if (!input)
+        {
+            Napi::Error::New(env, "Cannot allocate input").ThrowAsJavaScriptException();
+            goto end;
+        }
+        input->name = av_strdup(name);
+        input->filter_ctx = buffersink_ctx;
+        input->pad_idx = 0;
+        input->next = NULL;
+
+        if (!inputs)
+        {
+            inputs = input;
+        }
+        else
+        {
+            AVFilterInOut *lastInput = inputs;
+            while (lastInput->next)
+            {
+                lastInput = lastInput->next;
+            }
+            lastInput->next = input;
+        }
+    }
+
+    if ((ret = avfilter_graph_parse_ptr(filter_graph, filter_descr.c_str(),
+                                        &inputs, &outputs, NULL)) < 0)
+    {
+        Napi::Error::New(env, "Cannot parse filter graph").ThrowAsJavaScriptException();
+        goto end;
+    }
+
+    if (hardwareDevice.length())
+    {
+        // get hardware device type by string
+        enum AVHWDeviceType type = av_hwdevice_find_type_by_name(hardwareDevice.c_str());
+        if (type == AV_HWDEVICE_TYPE_NONE)
+        {
+            Napi::Error::New(env, "Failed to find hardware device type").ThrowAsJavaScriptException();
+            goto end;
+        }
+
+        const char *hardwareDeviceNameStr = hardwareDeviceName.length() ? hardwareDeviceName.c_str() : nullptr;
+        AVBufferRef *hw_device_ctx = NULL;
+        if (av_hwdevice_ctx_create(&hw_device_ctx, type, hardwareDeviceNameStr, NULL, 0) < 0)
+        {
+            Napi::Error::New(env, "Failed to create hardware device context").ThrowAsJavaScriptException();
+            goto end;
+        }
+        for (unsigned int i = 0; i < filter_graph->nb_filters; i++)
+        {
+            AVFilterContext *f = filter_graph->filters[i];
+
+            if (!(f->filter->flags & AVFILTER_FLAG_HWDEVICE))
+                continue;
+            f->hw_device_ctx = av_buffer_ref(hw_device_ctx);
+            if (!f->hw_device_ctx)
+            {
+                av_buffer_unref(&hw_device_ctx);
+                Napi::Error::New(env, "Failed to set hardware device context").ThrowAsJavaScriptException();
+                goto end;
+            }
+        }
+    }
+
+
+    for (unsigned int i = 0; i < frames.size(); i++)
+    {
+        AVFrame *frame_ = frames[i];
+        AVFilterContext *buffersrc_ctx = buffersrc_ctxs[i];
+
+        if (!frame_->hw_frames_ctx)
+        {
+            continue;
+        }
+
+        AVBufferSrcParameters *src_params = av_buffersrc_parameters_alloc();
+        if (!src_params)
+        {
+            Napi::Error::New(env, "Failed to allocate buffer source parameters").ThrowAsJavaScriptException();
+            goto end;
+        }
+        src_params->hw_frames_ctx = av_buffer_ref(frame_->hw_frames_ctx);
+
+        ret = av_buffersrc_parameters_set(buffersrc_ctx, src_params);
+        av_freep(&src_params);
+
+        if (ret < 0)
+        {
+            Napi::Error::New(env, "Failed to set buffer source parameters").ThrowAsJavaScriptException();
+            goto end;
+        }
+    }
+
+    if ((ret = avfilter_graph_config(filter_graph, NULL)) < 0)
+    {
+        Napi::Error::New(env, "Cannot configure the filter graph").ThrowAsJavaScriptException();
+        goto end;
+    }
+
+    avfilter_inout_free(&inputs);
+    avfilter_inout_free(&outputs);
+    filterGraph = filter_graph;
+    return;
+
+end:
+    avfilter_graph_free(&filter_graph);
+    avfilter_inout_free(&inputs);
+    avfilter_inout_free(&outputs);
 }
 
 AVFilterGraphObject::~AVFilterGraphObject()
@@ -57,67 +345,31 @@ Napi::Value AVFilterGraphObject::Destroy(const Napi::CallbackInfo &info)
     return info.Env().Undefined();
 }
 
-Napi::Value AVFilterGraphObject::SetCrop(const Napi::CallbackInfo &info)
+Napi::Value AVFilterGraphObject::SendCommand(const Napi::CallbackInfo &info)
 {
     // need four arguments
-    if (info.Length() < 4)
+    if (info.Length() < 3)
     {
-        Napi::Error::New(info.Env(), "Expected 4 arguments to SetCrop").ThrowAsJavaScriptException();
+        Napi::Error::New(info.Env(), "Expected 3 arguments to SendCommand").ThrowAsJavaScriptException();
         return info.Env().Undefined();
     }
     // parse out left, top, width, and height arguments as strings
-    if (!info[0].IsString() || !info[1].IsString() || !info[2].IsString() || !info[3].IsString())
+    if (!info[0].IsString() || !info[1].IsString() || !info[2].IsString())
     {
-        Napi::TypeError::New(info.Env(), "String expected").ThrowAsJavaScriptException();
+        Napi::TypeError::New(info.Env(), "Strings expected").ThrowAsJavaScriptException();
         return info.Env().Undefined();
     }
 
     // get the strings from the arguments
-    std::string left = info[0].As<Napi::String>().Utf8Value();
-    std::string top = info[1].As<Napi::String>().Utf8Value();
-    std::string width = info[2].As<Napi::String>().Utf8Value();
-    std::string height = info[3].As<Napi::String>().Utf8Value();
+    std::string target = info[0].As<Napi::String>().Utf8Value();
+    std::string command = info[1].As<Napi::String>().Utf8Value();
+    std::string arg = info[2].As<Napi::String>().Utf8Value();
     int ret;
 
     // reset the x and y to zero so all widths and heights may be valid.
-    if ((ret = avfilter_graph_send_command(filterGraph, "crop", "x", "0", 0, 0, 0)) < 0)
+    if ((ret = avfilter_graph_send_command(filterGraph, target.c_str(), command.c_str(), arg.c_str(), 0, 0, 0)) < 0)
     {
-        av_log(NULL, AV_LOG_ERROR, "Error while sending crop command (x reset)\n");
-        Napi::Error::New(info.Env(), AVErrorString(ret)).ThrowAsJavaScriptException();
-        return info.Env().Undefined();
-    }
-
-    if ((ret = avfilter_graph_send_command(filterGraph, "crop", "y", "0", 0, 0, 0)) < 0)
-    {
-        av_log(NULL, AV_LOG_ERROR, "Error while sending crop command (y reset)\n");
-        Napi::Error::New(info.Env(), AVErrorString(ret)).ThrowAsJavaScriptException();
-        return info.Env().Undefined();
-    }
-
-    if ((ret = avfilter_graph_send_command(filterGraph, "crop", "w", width.c_str(), 0, 0, 0)) < 0)
-    {
-        av_log(NULL, AV_LOG_ERROR, "Error while sending crop command (w)\n");
-        Napi::Error::New(info.Env(), AVErrorString(ret)).ThrowAsJavaScriptException();
-        return info.Env().Undefined();
-    }
-
-    if ((ret = avfilter_graph_send_command(filterGraph, "crop", "h", height.c_str(), 0, 0, 0)) < 0)
-    {
-        av_log(NULL, AV_LOG_ERROR, "Error while sending crop command (h)\n");
-        Napi::Error::New(info.Env(), AVErrorString(ret)).ThrowAsJavaScriptException();
-        return info.Env().Undefined();
-    }
-
-    if ((ret = avfilter_graph_send_command(filterGraph, "crop", "x", left.c_str(), 0, 0, 0)) < 0)
-    {
-        av_log(NULL, AV_LOG_ERROR, "Error while sending crop command (x)\n");
-        Napi::Error::New(info.Env(), AVErrorString(ret)).ThrowAsJavaScriptException();
-        return info.Env().Undefined();
-    }
-
-    if ((ret = avfilter_graph_send_command(filterGraph, "crop", "y", top.c_str(), 0, 0, 0)) < 0)
-    {
-        av_log(NULL, AV_LOG_ERROR, "Error while sending crop command (y)\n");
+        av_log(NULL, AV_LOG_ERROR, "Error while sending command to target %s %s %s\n", target.c_str(), command.c_str(), arg.c_str());
         Napi::Error::New(info.Env(), AVErrorString(ret)).ThrowAsJavaScriptException();
         return info.Env().Undefined();
     }
@@ -125,12 +377,18 @@ Napi::Value AVFilterGraphObject::SetCrop(const Napi::CallbackInfo &info)
     return info.Env().Undefined();
 }
 
-Napi::Value AVFilterGraphObject::Filter(const Napi::CallbackInfo &info)
+Napi::Value AVFilterGraphObject::AddFrame(const Napi::CallbackInfo &info)
 {
     if (info.Length() < 1 || !info[0].IsObject())
     {
         Napi::TypeError::New(info.Env(), "Frame object expected").ThrowAsJavaScriptException();
         return info.Env().Undefined();
+    }
+
+    unsigned long index = 0;
+    if (info.Length() > 1 && info[1].IsNumber())
+    {
+        index = info[1].As<Napi::Number>().Int32Value();
     }
 
     AVFrameObject *frameObject = Napi::ObjectWrap<AVFrameObject>::Unwrap(info[0].As<Napi::Object>());
@@ -143,11 +401,13 @@ Napi::Value AVFilterGraphObject::Filter(const Napi::CallbackInfo &info)
         return info.Env().Undefined();
     }
 
-    if (!buffersrc_ctx || !buffersink_ctx)
+    if (buffersrc_ctxs.size() <= index)
     {
-        Napi::TypeError::New(info.Env(), "Buffersrc or buffersink context is null").ThrowAsJavaScriptException();
+        Napi::TypeError::New(info.Env(), "Buffersrc context is null").ThrowAsJavaScriptException();
         return info.Env().Undefined();
     }
+    
+    AVFilterContext *buffersrc_ctx = buffersrc_ctxs[index];
 
     // Feed the frame to the buffer source filter
     int ret = av_buffersrc_add_frame_flags(buffersrc_ctx, frame, AV_BUFFERSRC_FLAG_KEEP_REF);
@@ -157,13 +417,24 @@ Napi::Value AVFilterGraphObject::Filter(const Napi::CallbackInfo &info)
         return info.Env().Undefined();
     }
 
-    // Flush the filter graph
-    // ret = av_buffersrc_add_frame_flags(buffersrc_ctx, NULL, AV_BUFFERSRC_FLAG_KEEP_REF);
-    // if (ret < 0)
-    // {
-    //     Napi::Error::New(info.Env(), "Error while flushing the filter graph").ThrowAsJavaScriptException();
-    //     return info.Env().Undefined();
-    // }
+    return info.Env().Undefined();
+}
+
+Napi::Value AVFilterGraphObject::GetFrame(const Napi::CallbackInfo &info)
+{
+    unsigned long index = 0;
+    if (info.Length() > 1 && info[1].IsNumber())
+    {
+        index = info[1].As<Napi::Number>().Int32Value();
+    }
+
+    if (buffersink_ctxs.size() <= index)
+    {
+        Napi::TypeError::New(info.Env(), "Buffersink context is null").ThrowAsJavaScriptException();
+        return info.Env().Undefined();
+    }
+
+    AVFilterContext *buffersink_ctx = buffersink_ctxs[index];
 
     AVFrame *filtered_frame = av_frame_alloc();
     if (!filtered_frame)
@@ -173,7 +444,13 @@ Napi::Value AVFilterGraphObject::Filter(const Napi::CallbackInfo &info)
     }
 
     // Get the filtered frame from the buffer sink filter
-    ret = av_buffersink_get_frame(buffersink_ctx, filtered_frame);
+    int ret = av_buffersink_get_frame(buffersink_ctx, filtered_frame);
+    // check for EAGAIN
+    if (ret == AVERROR(EAGAIN))
+    {
+        av_frame_free(&filtered_frame);
+        return info.Env().Undefined();
+    }
     if (ret < 0)
     {
         av_frame_free(&filtered_frame);
@@ -182,15 +459,4 @@ Napi::Value AVFilterGraphObject::Filter(const Napi::CallbackInfo &info)
     }
 
     return AVFrameObject::NewInstance(info.Env(), filtered_frame);
-}
-
-// Factory method to create an instance from C++
-Napi::Object AVFilterGraphObject::NewInstance(Napi::Env env, AVFilterGraph *filterGraph, AVFilterContext *buffersrc_ctx, AVFilterContext *buffersink_ctx)
-{
-    Napi::Object obj = constructor.New({});
-    AVFilterGraphObject *wrapper = Napi::ObjectWrap<AVFilterGraphObject>::Unwrap(obj);
-    wrapper->filterGraph = filterGraph;
-    wrapper->buffersrc_ctx = buffersrc_ctx;
-    wrapper->buffersink_ctx = buffersink_ctx;
-    return obj;
 }

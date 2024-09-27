@@ -35,10 +35,11 @@ private:
     Napi::Value GetPixelFormat(const Napi::CallbackInfo &info);
     Napi::Value GetTimeBaseNum(const Napi::CallbackInfo &info);
     Napi::Value GetTimeBaseDen(const Napi::CallbackInfo &info);
+    void SetTimeBaseNum(const Napi::CallbackInfo &info, const Napi::Value &value);
+    void SetTimeBaseDen(const Napi::CallbackInfo &info, const Napi::Value &value);
 
     Napi::Value Destroy(const Napi::CallbackInfo &info);
     Napi::Value ToJPEG(const Napi::CallbackInfo &info);
     Napi::Value CreateEncoder(const Napi::CallbackInfo &info);
     Napi::Value ToBuffer(const Napi::CallbackInfo &info);
-    Napi::Value CreateFilter(const Napi::CallbackInfo &info);
 };

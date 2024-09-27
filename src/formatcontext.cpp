@@ -29,41 +29,6 @@ extern "C"
 
 static Napi::FunctionReference logCallbackRef;
 
-// Custom log callback to pass messages to JavaScript
-static void ffmpeg_log_callback(void *ptr, int level, const char *fmt, va_list vl)
-{
-    v8::Isolate *isolate = v8::Isolate::GetCurrent();
-    if (!isolate)
-    {
-        return;
-    }
-
-    // Create a formatted string
-    char buffer[1024];
-    vsnprintf(buffer, sizeof(buffer), fmt, vl);
-
-    // Retrieve the environment and callback function
-    Napi::Env env = logCallbackRef.Env();
-    Napi::Function callback = logCallbackRef.Value();
-
-    callback.Call(env.Global(), {Napi::String::New(env, buffer), Napi::Number::New(env, level)});
-}
-
-Napi::Value setLogCallback(const Napi::CallbackInfo &info)
-{
-    Napi::Env env = info.Env();
-    if (info.Length() < 1)
-    {
-        logCallbackRef.Reset();
-        return env.Undefined();
-    }
-
-    logCallbackRef = Napi::Persistent(info[0].As<Napi::Function>()); // Save the log callback function
-
-    av_log_set_callback(ffmpeg_log_callback);
-    return env.Undefined();
-}
-
 Napi::Value setLogLevel(const Napi::CallbackInfo &info)
 {
     Napi::Env env = info.Env();
@@ -449,7 +414,8 @@ Napi::Value AVFormatContextObject::CreateDecoder(const Napi::CallbackInfo &info)
 
     Napi::Env env = info.Env();
 
-    AVCodecID codec_id = fmt_ctx_->streams[streamIndex]->codecpar->codec_id;
+    AVStream* stream = fmt_ctx_->streams[streamIndex];
+    AVCodecID codec_id = stream->codecpar->codec_id;
     const struct AVCodec *codec = avcodec_find_decoder(codec_id);
     Napi::Object codecContextReturn = AVCodecContextObject::NewInstance(env);
     AVCodecContextObject *codecContextObject = Napi::ObjectWrap<AVCodecContextObject>::Unwrap(codecContextReturn);
@@ -519,6 +485,7 @@ Napi::Value AVFormatContextObject::CreateDecoder(const Napi::CallbackInfo &info)
     }
 
     codecContextObject->codecContext = avcodec_alloc_context3(codec);
+    codecContextObject->codecContext->time_base = stream->time_base;
     codecContextObject->codecContext->opaque = codecContextObject;
     if (hw_device_ctx)
     {
@@ -829,7 +796,6 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
     AVCodecContextObject::Init(env, exports);
     AVFormatContextObject::Init(env, exports);
 
-    exports.Set(Napi::String::New(env, "setLogCallback"), Napi::Function::New(env, setLogCallback));
     exports.Set(Napi::String::New(env, "setLogLevel"), Napi::Function::New(env, setLogLevel));
     return exports;
 }

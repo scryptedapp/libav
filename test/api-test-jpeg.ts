@@ -1,4 +1,4 @@
-import { createAVFormatContext, setAVLogLevel } from '../src';
+import { createAVFilter, createAVFormatContext, setAVLogLevel } from '../src';
 
 async function main() {
     setAVLogLevel('verbose');
@@ -9,7 +9,7 @@ async function main() {
 
     while (true) {
         using packet = await ctx.readFrame();
-        if (!packet)
+        if (!packet || packet.streamIndex !== video.index)
             continue;
 
         try {
@@ -24,19 +24,23 @@ async function main() {
         if (!frame)
             continue;
 
-        using filter = frame.createFilter({
+        using filter = createAVFilter({
             filter: 'hwdownload,format=nv12,scale,format=yuvj420p',
-            timeBaseNum: video.timeBaseNum,
-            timeBaseDen: video.timeBaseDen,
+            frames: [
+                {
+                    frame,
+                    timeBase: video,
+                }
+            ],
         });
-        using softwareFrame = filter.filter(frame);
+        filter.addFrame(frame);
+        using softwareFrame = filter.getFrame();
 
         // reusing a jpeg encoder seems to cause several quality loss after the first frame
         using encoder = softwareFrame.createEncoder({
             encoder: 'mjpeg',
             bitrate: 2000000,
-            timeBaseNum: video.timeBaseNum,
-            timeBaseDen: video.timeBaseDen,
+            timeBase: video,
             opts: {
                 quality: 1,
                 qmin: 1,

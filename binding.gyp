@@ -21,6 +21,8 @@
                     "CoreFoundation",
                     "-framework",
                     "Security",
+                    "-framework",
+                    "OpenCL",
                 ],
             },
             "configurations": {

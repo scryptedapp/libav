@@ -31,8 +31,7 @@ async function main() {
             encoder = frame.createEncoder({
                 encoder: 'h264_videotoolbox',
                 bitrate: 2000000,
-                timeBaseNum: video.timeBaseNum,
-                timeBaseDen: video.timeBaseDen,
+                timeBase: video,
             });
 
             writeStream = writeContext.newStream({

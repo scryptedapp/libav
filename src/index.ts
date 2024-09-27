@@ -75,10 +75,13 @@ export async function downloadAddon(installPath?: string) {
     await fs.promises.rename(path.join(extractPath, 'build'), buildPath);
 }
 
-export interface AVFrame {
+export interface AVFrame extends AVTimeBase {
     readonly width: number;
     readonly height: number;
     readonly pixelFormat: string;
+
+    timeBaseNum: number;
+    timeBaseDen: number;
 
     [Symbol.dispose](): void;
     destroy(): void;
@@ -91,25 +94,19 @@ export interface AVFrame {
     createEncoder(options: {
         encoder: string,
         bitrate: number,
-        timeBaseNum: number,
-        timeBaseDen: number,
+        timeBase: AVTimeBase,
         opts?: {
             [key: string]: string | number,
         },
     }): AVCodecContext;
-
-    createFilter(options: {
-        filter: string,
-        timeBaseNum: number,
-        timeBaseDen: number,
-    }): AVFilter;
 }
 
 export interface AVFilter {
     [Symbol.dispose](): void;
     destroy(): void;
-    setCrop(x: string, y: string, width: string, height: string): void;
-    filter(frame: AVFrame): AVFrame;
+    sendCommand(target: string, command: string, arg: string): void;
+    addFrame(frame: AVFrame, index?: number): void;
+    getFrame(index?: number): AVFrame;
 }
 
 export interface AVPacket {
@@ -125,7 +122,7 @@ export interface AVPacket {
     destroy(): void;
 }
 
-export interface AVCodecContext {
+export interface AVCodecContext extends AVTimeBase {
     readonly hardwareDevice: string;
     /**
      * The pixel format of the output frames.
@@ -133,8 +130,6 @@ export interface AVCodecContext {
      */
     readonly pixelFormat: string;
     readonly hardwarePixelFormat: string;
-    readonly timeBaseNum: number;
-    readonly timeBaseDen: number;
 
     [Symbol.dispose](): void;
     destroy(): void;
@@ -144,12 +139,15 @@ export interface AVCodecContext {
     receivePacket(): Promise<AVPacket>;
 }
 
-export interface AVStream {
+export interface AVStream extends AVTimeBase {
     readonly index: number;
-    readonly timeBaseNum: number;
-    readonly timeBaseDen: number;
     readonly codec: string;
     readonly type: string;
+}
+
+export interface AVTimeBase {
+    readonly timeBaseNum: number,
+    readonly timeBaseDen: number,
 }
 
 export interface AVFormatContext {
@@ -170,16 +168,26 @@ export interface AVFormatContext {
     close(): void;
 }
 
-export function setAVLogCallback(callback: (msg: string, level: number) => void) {
-    addon.setLogCallback(callback);
-}
-
 export function setAVLogLevel(level: 'quiet' | 'panic' | 'fatal' | 'error' | 'warning' | 'info' | 'verbose' | 'debug' | 'trace') {
     addon.setLogLevel(level);
 }
 
 export function createAVFormatContext(): AVFormatContext {
     return new addon.AVFormatContext();
+}
+
+export function createAVFilter(options: {
+    filter: string,
+    frames: {
+        frame: AVFrame,
+        timeBase: AVTimeBase,
+    }[],
+    hardwareDevice?: string,
+    hardwareDeviceName?: string,
+    // outCount defaults to 1
+    outCount?: number,
+}): AVFilter {
+    return new addon.AVFilter(options);
 }
 
 export function getBinaryUrl() {

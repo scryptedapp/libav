@@ -18,19 +18,20 @@ class AVFilterGraphObject : public Napi::ObjectWrap<AVFilterGraphObject>
 {
 public:
     static Napi::Object Init(Napi::Env env, Napi::Object exports);
-    static Napi::Object NewInstance(Napi::Env env, AVFilterGraph *filterGraph, AVFilterContext *buffersrc_ctx, AVFilterContext *buffersink_ctx);
 
     AVFilterGraphObject(const Napi::CallbackInfo &info);
     ~AVFilterGraphObject();
-    AVFilterContext *buffersrc_ctx;
-    AVFilterContext *buffersink_ctx;
+
+    std::vector<AVFilterContext*> buffersrc_ctxs;
+    std::vector<AVFilterContext*> buffersink_ctxs;
 
 private:
     static Napi::FunctionReference constructor;
 
     Napi::Value Destroy(const Napi::CallbackInfo &info);
-    Napi::Value Filter(const Napi::CallbackInfo &info);
-    Napi::Value SetCrop(const Napi::CallbackInfo &info);
+    Napi::Value SendCommand(const Napi::CallbackInfo &info);
+    Napi::Value AddFrame(const Napi::CallbackInfo &info);
+    Napi::Value GetFrame(const Napi::CallbackInfo &info);
 
     AVFilterGraph *filterGraph;
 };

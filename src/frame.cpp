@@ -34,9 +34,9 @@ Napi::Object AVFrameObject::Init(Napi::Env env, Napi::Object exports)
 
                                                                 AVFrameObject::InstanceAccessor("pixelFormat", &AVFrameObject::GetPixelFormat, nullptr),
 
-                                                                AVFrameObject::InstanceAccessor("timeBaseNum", &AVFrameObject::GetTimeBaseNum, nullptr),
+                                                                AVFrameObject::InstanceAccessor("timeBaseNum", &AVFrameObject::GetTimeBaseNum, &AVFrameObject::SetTimeBaseNum),
 
-                                                                AVFrameObject::InstanceAccessor("timeBaseDen", &AVFrameObject::GetTimeBaseDen, nullptr),
+                                                                AVFrameObject::InstanceAccessor("timeBaseDen", &AVFrameObject::GetTimeBaseDen, &AVFrameObject::SetTimeBaseDen),
 
                                                                 InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVFrameObject::Destroy),
 
@@ -47,8 +47,6 @@ Napi::Object AVFrameObject::Init(Napi::Env env, Napi::Object exports)
                                                                 InstanceMethod("toJpeg", &AVFrameObject::ToJPEG),
 
                                                                 InstanceMethod("createEncoder", &AVFrameObject::CreateEncoder),
-
-                                                                InstanceMethod("createFilter", &AVFrameObject::CreateFilter),
 
                                                             });
 
@@ -190,19 +188,23 @@ Napi::Value AVFrameObject::CreateEncoder(const Napi::CallbackInfo &info)
         return env.Undefined();
     }
 
-    Napi::Value timeBaseNum = options.Get("timeBaseNum");
-    if (!timeBaseNum.IsNumber())
+    Napi::Value timebaseValue = options.Get("timeBase");
+    if (!timebaseValue.IsObject())
     {
-        Napi::TypeError::New(env, "Number expected for timeBaseNum").ThrowAsJavaScriptException();
+        Napi::TypeError::New(env, "Object expected for timeBase").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+    Napi::Object timebaseObject = timebaseValue.As<Napi::Object>();
+    // validate the timebase object
+    if (!timebaseObject.Has("timeBaseNum") || !timebaseObject.Get("timeBaseNum").IsNumber() ||
+        !timebaseObject.Has("timeBaseDen") || !timebaseObject.Get("timeBaseDen").IsNumber())
+    {
+        Napi::TypeError::New(env, "invalid object for timeBase").ThrowAsJavaScriptException();
         return env.Undefined();
     }
 
-    Napi::Value timeBaseDen = options.Get("timeBaseDen");
-    if (!timeBaseDen.IsNumber())
-    {
-        Napi::TypeError::New(env, "Number expected for timeBaseDen").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
+    int timeBaseNum = timebaseObject.Get("timeBaseNum").As<Napi::Number>().Int32Value();
+    int timeBaseDen = timebaseObject.Get("timeBaseDen").As<Napi::Number>().Int32Value();
 
     AVCodecContext *c = avcodec_alloc_context3(codec);
     if (!c)
@@ -215,8 +217,8 @@ Napi::Value AVFrameObject::CreateEncoder(const Napi::CallbackInfo &info)
     c->width = frame_->width;
     c->height = frame_->height;
     c->pix_fmt = (enum AVPixelFormat)frame_->format;
-    c->time_base.num = timeBaseNum.As<Napi::Number>().Int32Value();
-    c->time_base.den = timeBaseDen.As<Napi::Number>().Int32Value();
+    c->time_base.num = timeBaseNum;
+    c->time_base.den = timeBaseDen;
 
     Napi::Value opts = options.Get("opts");
     if (opts.IsObject())
@@ -261,155 +263,6 @@ Napi::Value AVFrameObject::CreateEncoder(const Napi::CallbackInfo &info)
     AVCodecContextObject *codecContextWrapper = Napi::ObjectWrap<AVCodecContextObject>::Unwrap(codecContextObject.As<Napi::Object>());
     codecContextWrapper->codecContext = c;
     return codecContextObject;
-}
-
-Napi::Value AVFrameObject::CreateFilter(const Napi::CallbackInfo &info)
-{
-    Napi::Env env = info.Env();
-
-    if (info.Length() < 1 || !info[0].IsObject())
-    {
-        Napi::TypeError::New(env, "Object expected for argument 0: options").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    if (!frame_)
-    {
-        Napi::Error::New(env, "Frame object is null").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    // need filter, codecContext, timeBaseNum, timeBaseDen
-    Napi::Object options = info[0].As<Napi::Object>();
-
-    Napi::Value filterValue = options.Get("filter");
-    if (!filterValue.IsString())
-    {
-        Napi::TypeError::New(env, "String expected for filter").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    Napi::Value timeBaseNumValue = options.Get("timeBaseNum");
-    if (!timeBaseNumValue.IsNumber())
-    {
-        Napi::TypeError::New(env, "Number expected for timeBaseNum").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-    Napi::Value timeBaseDenValue = options.Get("timeBaseDen");
-    if (!timeBaseDenValue.IsNumber())
-    {
-        Napi::TypeError::New(env, "Number expected for timeBaseDen").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    std::string filter_descr = filterValue.As<Napi::String>().Utf8Value();
-
-    enum AVPixelFormat pix_fmt = AV_PIX_FMT_YUVJ420P;
-    if (frame_->hw_frames_ctx)
-    {
-        AVHWFramesContext *frames_ctx = (AVHWFramesContext *)(frame_->hw_frames_ctx->data);
-        pix_fmt = frames_ctx->format;
-    }
-    AVRational time_base = {timeBaseNumValue.As<Napi::Number>().Int32Value(), timeBaseDenValue.As<Napi::Number>().Int32Value()};
-
-    char args[512];
-    int ret = 0;
-    const AVFilter *buffersrc = avfilter_get_by_name("buffer");
-    const AVFilter *buffersink = avfilter_get_by_name("buffersink");
-    AVFilterInOut *outputs = avfilter_inout_alloc();
-    AVFilterInOut *inputs = avfilter_inout_alloc();
-    AVBufferSrcParameters *src_params;
-    AVFilterContext *buffersrc_ctx;
-    AVFilterContext *buffersink_ctx;
-
-    struct AVFilterGraph *filter_graph = avfilter_graph_alloc();
-    avfilter_graph_set_auto_convert(filter_graph, AVFILTER_AUTO_CONVERT_NONE);
-    if (!outputs || !inputs || !filter_graph)
-    {
-        Napi::Error::New(env, "filter graph creation failed").ThrowAsJavaScriptException();
-        goto end;
-    }
-
-    /* buffer video source: the decoded frames from the decoder will be inserted here. */
-    snprintf(args, sizeof(args),
-             "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
-             frame_->width, frame_->height, pix_fmt,
-             time_base.num, time_base.den,
-             1, 1);
-
-    ret = avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in",
-                                       args, NULL, filter_graph);
-    if (ret < 0)
-    {
-        Napi::Error::New(env, "Cannot create buffer source").ThrowAsJavaScriptException();
-        goto end;
-    }
-
-    /* buffer video sink: to terminate the filter chain. */
-    ret = avfilter_graph_create_filter(&buffersink_ctx, buffersink, "out",
-                                       NULL, nullptr, filter_graph);
-    if (ret < 0)
-    {
-        Napi::Error::New(env, "Cannot create buffer sink").ThrowAsJavaScriptException();
-        goto end;
-    }
-
-    /* Endpoints for the filter graph. */
-    outputs->name = av_strdup("in");
-    outputs->filter_ctx = buffersrc_ctx;
-    outputs->pad_idx = 0;
-    outputs->next = NULL;
-
-    inputs->name = av_strdup("out");
-    inputs->filter_ctx = buffersink_ctx;
-    inputs->pad_idx = 0;
-    inputs->next = NULL;
-
-    if ((ret = avfilter_graph_parse_ptr(filter_graph, filter_descr.c_str(),
-                                        &inputs, &outputs, NULL)) < 0)
-    {
-        Napi::Error::New(env, "Cannot parse filter graph").ThrowAsJavaScriptException();
-        goto end;
-    }
-
-    // 3. Set the hardware frames context for the buffer source
-    src_params = av_buffersrc_parameters_alloc();
-    if (!src_params)
-    {
-        Napi::Error::New(env, "Failed to allocate buffer source parameters").ThrowAsJavaScriptException();
-        goto end;
-    }
-
-    if (frame_->hw_frames_ctx)
-    {
-        src_params->hw_frames_ctx = av_buffer_ref(frame_->hw_frames_ctx);
-    }
-
-    ret = av_buffersrc_parameters_set(buffersrc_ctx, src_params);
-    av_freep(&src_params);
-
-    if (ret < 0)
-    {
-        Napi::Error::New(env, "Failed to set buffer source parameters").ThrowAsJavaScriptException();
-        goto end;
-    }
-
-    if ((ret = avfilter_graph_config(filter_graph, NULL)) < 0)
-    {
-        Napi::Error::New(env, "Cannot configure the filter graph").ThrowAsJavaScriptException();
-        goto end;
-    }
-
-    avfilter_inout_free(&inputs);
-    avfilter_inout_free(&outputs);
-    return AVFilterGraphObject::NewInstance(env, filter_graph, buffersrc_ctx, buffersink_ctx);
-
-end:
-    avfilter_graph_free(&filter_graph);
-    avfilter_inout_free(&inputs);
-    avfilter_inout_free(&outputs);
-
-    return env.Undefined();
 }
 
 Napi::Value AVFrameObject::ToBuffer(const Napi::CallbackInfo &info)
@@ -509,6 +362,38 @@ Napi::Value AVFrameObject::GetTimeBaseNum(const Napi::CallbackInfo &info)
         return env.Undefined();
     }
     return Napi::Number::New(env, frame_->time_base.num);
+}
+
+void AVFrameObject::SetTimeBaseNum(const Napi::CallbackInfo &info, const Napi::Value &value)
+{
+    Napi::Env env = info.Env();
+    if (!frame_)
+    {
+        Napi::Error::New(env, "Frame object is null").ThrowAsJavaScriptException();
+        return;
+    }
+    if (!value.IsNumber())
+    {
+        Napi::TypeError::New(env, "Number expected").ThrowAsJavaScriptException();
+        return;
+    }
+    frame_->time_base.num = value.As<Napi::Number>().Int32Value();
+}
+
+void AVFrameObject::SetTimeBaseDen(const Napi::CallbackInfo &info, const Napi::Value &value)
+{
+    Napi::Env env = info.Env();
+    if (!frame_)
+    {
+        Napi::Error::New(env, "Frame object is null").ThrowAsJavaScriptException();
+        return;
+    }
+    if (!value.IsNumber())
+    {
+        Napi::TypeError::New(env, "Number expected").ThrowAsJavaScriptException();
+        return;
+    }
+    frame_->time_base.den = value.As<Napi::Number>().Int32Value();
 }
 
 Napi::Value AVFrameObject::GetTimeBaseDen(const Napi::CallbackInfo &info)

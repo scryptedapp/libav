@@ -6,6 +6,9 @@
         "string": "cpp",
         "__locale": "cpp",
         "stdexcept": "cpp",
-        "__config": "c"
+        "__config": "c",
+        "string_view": "cpp",
+        "typeinfo": "cpp",
+        "variant": "cpp"
     }
 }
