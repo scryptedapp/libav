@@ -47,7 +47,6 @@ async function main() {
         openclFilter.addFrame(frame);
         using clframe = openclFilter.getFrame();
         console.log(clframe.pixelFormat);
-        const buffer = clframe.toJpeg(1);
     }
 }
 
