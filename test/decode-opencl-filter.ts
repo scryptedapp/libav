@@ -22,7 +22,7 @@ async function main() {
 
         if (!blurFilter) {
             blurFilter = createAVFilter({
-                filter: 'hwmap,program_opencl=kernel=blur,hwdownload,format=nv12',
+                filter: 'hwmap,program_opencl=kernel=blur',
                 hardwareDevice: 'opencl',
                 frames: [
                     {
@@ -105,7 +105,7 @@ async function main() {
 
         if (!blurDiffFilter) {
             blurDiffFilter = createAVFilter({
-                filter: '[in0]scale,format=nv12,hwupload[hw0];[in1]scale,format=nv12,hwupload[hw1];[hw0][hw1]program_opencl=kernel=blurDiff:inputs=2,hwdownload,format=nv12,scale,format=yuvj420p',
+                filter: '[in0]hwmap[hw0];[in1]scale,format=nv12,hwupload[hw1];[hw0][hw1]program_opencl=kernel=blurDiff:inputs=2,hwdownload,format=nv12,scale,format=yuvj420p',
                 hardwareDevice: 'opencl',
                 frames: [
                     {
