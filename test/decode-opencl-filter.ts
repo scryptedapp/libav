@@ -79,7 +79,7 @@ async function main() {
 
         if (!blurDiffFilter) {
             blurDiffFilter = createAVFilter({
-                filter: '[in0][in1]program_opencl=kernel=blurDiff:inputs=2,hwdownload,format=nv12,scale,format=yuvj420p',
+                filter: '[in0][in1]program_opencl=kernel=diffnv12:format=gray:planar=0:inputs=2,hwdownload,format=gray,scale,format=yuvj420p',
                 frames: [
                     {
                         frame: blurredFrame,
@@ -88,25 +88,47 @@ async function main() {
                     {
                         frame: newFrame,
                         timeBase: video,
-                    }
+                    },
                 ],
             });
 
             blurDiffFilter.sendCommand("program_opencl", "source", `
-                    __kernel void blurDiff(__write_only image2d_t output_image, unsigned int index,
-                            __read_only image2d_t blurred_image, __read_only image2d_t input_image) {
+                    __kernel void diffnv12(__write_only image2d_t output_image, 
+                        __read_only image2d_t y0_image, __read_only image2d_t uv0_image,
+                        __read_only image2d_t y1_image, __read_only image2d_t uv1_image
+                    ) {
                         int x = get_global_id(0);
                         int y = get_global_id(1);
-                        int width = get_image_width(input_image);
-                        int height = get_image_height(input_image);
+                        int width = get_image_width(y0_image);
+                        int height = get_image_height(y0_image);
 
                         int2 coords = (int2)(x, y);
+                        int2 uvcoords = (int2)(x / 2, y / 2);
 
-                        uint4 blurred = read_imageui(blurred_image, coords);
-                        uint4 input = read_imageui(input_image, coords);
-                        uint4 diff = abs_diff(blurred, input);
+                        float4 y0 = read_imagef(y0_image, coords);
+                        float4 y1 = read_imagef(y1_image, coords);
+                        float4 uv0 = read_imagef(uv0_image, uvcoords);
+                        float4 uv1 = read_imagef(uv1_image, uvcoords);
 
-                        write_imageui(output_image, coords, diff);
+                        // printf("OCL: %d %d\\n", y0.x, y1.x);
+
+                        float dy = fabs(y0.x - y1.x);
+                        float du = fabs(uv0.x - uv1.x);
+                        float dv = fabs(uv0.y - uv1.y);
+
+                        float sy = step(0.2, dy);
+                        float su = step(0.05, du);
+                        float sv = step(0.05, dv);
+
+                        float s = sy || su || sv;
+
+                        float4 result;
+                        result.x = s;
+                        result.y = s;
+                        result.z = s;
+                        result.w = 1;
+
+                        write_imagef(output_image, coords, result);
                     }
                 `);
         }
@@ -117,12 +139,11 @@ async function main() {
         blurDiffFilter!.addFrame(blurredFrame, 0);
         blurDiffFilter!.addFrame(newFrame, 1);
 
-        const diffedFrame = blurDiffFilter!.getFrame();
+        using diffedFrame = blurDiffFilter!.getFrame();
         console.log(diffedFrame.pixelFormat);
 
-        const jpeg = diffedFrame.toJpeg(1);
-        // save it
-        fs.writeFileSync('/tmp/output.jpg', jpeg);
+        // const jpeg = diffedFrame.toJpeg(1);
+        // fs.writeFileSync('/tmp/output.jpg', jpeg);
     }
 }
 

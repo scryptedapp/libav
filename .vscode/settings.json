@@ -10,6 +10,7 @@
         "string_view": "cpp",
         "typeinfo": "cpp",
         "variant": "cpp",
-        "ios": "c"
+        "ios": "c",
+        "avfilter.h": "c"
     }
 }
