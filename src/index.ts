@@ -82,6 +82,8 @@ export interface AVFrame extends AVTimeBase {
 
     timeBaseNum: number;
     timeBaseDen: number;
+    pts: number;
+    dts: number;
 
     [Symbol.dispose](): void;
     destroy(): void;
@@ -184,6 +186,7 @@ export function createAVFilter(options: {
     }[],
     hardwareDevice?: string,
     hardwareDeviceName?: string,
+    hardwareDeviceFrame?: AVFrame;
     // outCount defaults to 1
     outCount?: number,
 }): AVFilter {

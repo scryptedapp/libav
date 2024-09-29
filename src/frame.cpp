@@ -38,6 +38,10 @@ Napi::Object AVFrameObject::Init(Napi::Env env, Napi::Object exports)
 
                                                                 AVFrameObject::InstanceAccessor("timeBaseDen", &AVFrameObject::GetTimeBaseDen, &AVFrameObject::SetTimeBaseDen),
 
+                                                                AVFrameObject::InstanceAccessor("pts", &AVFrameObject::GetPTS, &AVFrameObject::SetPTS),
+
+                                                                AVFrameObject::InstanceAccessor("dts", &AVFrameObject::GetDTS, &AVFrameObject::SetDTS),
+
                                                                 InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVFrameObject::Destroy),
 
                                                                 InstanceMethod("destroy", &AVFrameObject::Destroy),
@@ -404,4 +408,56 @@ Napi::Value AVFrameObject::GetTimeBaseDen(const Napi::CallbackInfo &info)
         return env.Undefined();
     }
     return Napi::Number::New(env, frame_->time_base.den);
+}
+
+Napi::Value AVFrameObject::GetPTS(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+    if (!frame_)
+    {
+        return env.Undefined();
+    }
+    return Napi::Number::New(env, frame_->pts);
+}
+
+void AVFrameObject::SetPTS(const Napi::CallbackInfo &info, const Napi::Value &value)
+{
+    Napi::Env env = info.Env();
+    if (!frame_)
+    {
+        Napi::Error::New(env, "Frame object is null").ThrowAsJavaScriptException();
+        return;
+    }
+    if (!value.IsNumber())
+    {
+        Napi::TypeError::New(env, "Number expected").ThrowAsJavaScriptException();
+        return;
+    }
+    frame_->pts = value.As<Napi::Number>().Int64Value();
+}
+
+Napi::Value AVFrameObject::GetDTS(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+    if (!frame_)
+    {
+        return env.Undefined();
+    }
+    return Napi::Number::New(env, frame_->pkt_dts);
+}
+
+void AVFrameObject::SetDTS(const Napi::CallbackInfo &info, const Napi::Value &value)
+{
+    Napi::Env env = info.Env();
+    if (!frame_)
+    {
+        Napi::Error::New(env, "Frame object is null").ThrowAsJavaScriptException();
+        return;
+    }
+    if (!value.IsNumber())
+    {
+        Napi::TypeError::New(env, "Number expected").ThrowAsJavaScriptException();
+        return;
+    }
+    frame_->pkt_dts = value.As<Napi::Number>().Int64Value();
 }

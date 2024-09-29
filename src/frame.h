@@ -37,6 +37,10 @@ private:
     Napi::Value GetTimeBaseDen(const Napi::CallbackInfo &info);
     void SetTimeBaseNum(const Napi::CallbackInfo &info, const Napi::Value &value);
     void SetTimeBaseDen(const Napi::CallbackInfo &info, const Napi::Value &value);
+    Napi::Value GetPTS(const Napi::CallbackInfo &info);
+    void SetPTS(const Napi::CallbackInfo &info, const Napi::Value &value);
+    Napi::Value GetDTS(const Napi::CallbackInfo &info);
+    void SetDTS(const Napi::CallbackInfo &info, const Napi::Value &value);
 
     Napi::Value Destroy(const Napi::CallbackInfo &info);
     Napi::Value ToJPEG(const Napi::CallbackInfo &info);

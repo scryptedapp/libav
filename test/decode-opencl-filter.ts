@@ -9,7 +9,6 @@ async function main() {
 
     using decoder = readContext.createDecoder(video.index, 'videotoolbox');
 
-    let uploadFilter: AVFilter | undefined;
     let blurFilter: AVFilter | undefined;
     let blurDiffFilter: AVFilter | undefined;
 
@@ -72,48 +71,22 @@ async function main() {
         if (!blurredFrame) {
             blurFilter.addFrame(frame);
             blurredFrame = blurFilter.getFrame();
-
-            // uploadFilter = createAVFilter({
-            //     filter: 'scale,format=nv12,hwupload',
-            //     hardwareDevice: 'videotoolbox',
-            //     frames: [
-            //         {
-            //             frame: blurredFrame,
-            //             timeBase: video,
-            //         }
-            //     ],
-            // });
-
-            // uploadFilter.addFrame(blurredFrame);
-            // blurredFrame = uploadFilter.getFrame();
-
             continue;
         }
 
-        uploadFilter = createAVFilter({
-            filter: 'hwdownload,format=nv12',
-            frames: [
-                {
-                    frame: frame,
-                    timeBase: video,
-                }
-            ],
-        });
-
-        uploadFilter.addFrame(frame);
-        using derpFrame= uploadFilter.getFrame();
+        blurFilter.addFrame(frame);
+        using newFrame = blurFilter.getFrame();
 
         if (!blurDiffFilter) {
             blurDiffFilter = createAVFilter({
-                filter: '[in0]hwmap[hw0];[in1]scale,format=nv12,hwupload[hw1];[hw0][hw1]program_opencl=kernel=blurDiff:inputs=2,hwdownload,format=nv12,scale,format=yuvj420p',
-                hardwareDevice: 'opencl',
+                filter: '[in0][in1]program_opencl=kernel=blurDiff:inputs=2,hwdownload,format=nv12,scale,format=yuvj420p',
                 frames: [
                     {
                         frame: blurredFrame,
                         timeBase: video,
                     },
                     {
-                        frame: derpFrame,
+                        frame: newFrame,
                         timeBase: video,
                     }
                 ],
@@ -137,10 +110,15 @@ async function main() {
                     }
                 `);
         }
-        blurDiffFilter!.addFrame(blurredFrame, 1);
-        blurDiffFilter!.addFrame(derpFrame, 0);
+
+        blurredFrame.pts = newFrame.pts;
+        blurredFrame.dts = newFrame.dts;
+
+        blurDiffFilter!.addFrame(blurredFrame, 0);
+        blurDiffFilter!.addFrame(newFrame, 1);
 
         const diffedFrame = blurDiffFilter!.getFrame();
+        console.log(diffedFrame.pixelFormat);
 
         const jpeg = diffedFrame.toJpeg(1);
         // save it
