@@ -217,27 +217,7 @@ export function getBinaryUrl() {
     return url;
 }
 
-export async function toJpeg(frame: AVFrame, quality: number) {
-    let filterString = `scale,format=yuvj420p`;
-    if (frame.hardwareDeviceType)
-        filterString = `hwdownload,format=${frame.softwareFormat},${filterString}`;
-
-    using filter = createAVFilter({
-        filter: filterString,
-        frames: [
-            {
-                frame,
-                timeBase: {
-                    timeBaseNum: 1,
-                    timeBaseDen: 25,
-                },
-            }
-        ],
-    });
-
-    filter.addFrame(frame);
-    using softwareFrame = filter.getFrame();
-
+async function encodeJpeg(softwareFrame: AVFrame, quality: number) {
     using encoder = softwareFrame.createEncoder({
         encoder: 'mjpeg',
         bitrate: 2000000,
@@ -261,6 +241,33 @@ export async function toJpeg(frame: AVFrame, quality: number) {
         throw new Error('receivePacket needs more frames');
 
     return transcodePacket.getData();
+}
+
+export async function toJpeg(frame: AVFrame, quality: number) {
+    if (frame.pixelFormat === 'yuvj420p')
+        return encodeJpeg(frame, quality);
+
+    let filterString = `scale,format=yuvj420p`;
+    if (frame.hardwareDeviceType)
+        filterString = `hwdownload,format=${frame.softwareFormat},${filterString}`;
+
+    using filter = createAVFilter({
+        filter: filterString,
+        frames: [
+            {
+                frame,
+                timeBase: {
+                    timeBaseNum: 1,
+                    timeBaseDen: 25,
+                },
+            }
+        ],
+    });
+
+    filter.addFrame(frame);
+    using softwareFrame = filter.getFrame();
+
+    return encodeJpeg(softwareFrame, quality);
 }
 
 export async function toBuffer(frame: AVFrame) {
