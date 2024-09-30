@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { AVFilter, AVFrame, createAVFilter, createAVFormatContext, setAVLogLevel, toBuffer, toJpeg } from '../src';
+import { AVFilter, AVFrame, createAVFilter, createAVFormatContext, createAVFrame, setAVLogLevel, toBuffer, toJpeg } from '../src';
 
 const resizeHalfKernel = `
     __kernel void resize_half(__write_only image2d_t output_image, int index, __read_only image2d_t input_image) {
@@ -29,8 +29,6 @@ async function main() {
     let blurDiffFilter: AVFilter | undefined;
 
     let blurredFrame: AVFrame | undefined;
-
-    const resizeFilters: AVFilter[] = [];
 
     let resizeFilter: AVFilter | undefined;
     let resizeCount = -1;
@@ -161,33 +159,30 @@ async function main() {
         using diffedFrame = blurDiffFilter!.getFrame(0);
         console.log(diffedFrame.pixelFormat);
 
+        // const jpeg  = await toJpeg(diffedFrame, 1);
+        // fs.writeFileSync('/tmp/test.jpg', jpeg);
+
         if (!resizeFilter) {
             let currentWidth = diffedFrame.width;
             let currentHeight = diffedFrame.height;
 
-            let filterString = '';
+            let filterStrings: string[] = [];
 
-            while (currentWidth > 2 && currentHeight > 2) {
-                if (filterString) {
-                    filterString += `,split[out${resizeCount}][s${resizeCount}];[s${resizeCount}]`;
-                }
-
+            while (currentWidth > 64 && currentHeight > 64) {
                 const newWidth = Math.ceil(currentWidth / 2);
                 const newHeight = Math.ceil(currentHeight / 2);
 
-                filterString += `program_opencl@${resizeCount+1}=kernel=resize_half:size=${newWidth}x${newHeight}`;
+                filterStrings.push(`program_opencl@${resizeCount + 1}=kernel=resize_half:size=${newWidth}x${newHeight}`);
 
                 currentWidth = newWidth;
                 currentHeight = newHeight;
                 resizeCount++;
             }
 
-            filterString += `[out${resizeCount}]`;
+            const filterString = filterStrings.join(',');
 
-            console.log(filterString.split(';'));
             resizeFilter = createAVFilter({
                 filter: filterString,
-                outCount: resizeCount + 1,
                 frames: [
                     {
                         frame: diffedFrame,
@@ -195,61 +190,16 @@ async function main() {
                     }
                 ],
             });
-            
+
             for (let i = 0; i < resizeCount + 1; i++) {
                 resizeFilter.sendCommand(`program_opencl@${i}`, "source", resizeHalfKernel);
             }
         }
 
         resizeFilter.addFrame(diffedFrame);
-        const resizedFrames: AVFrame[] = [];
-        for (let i = 0; i < resizeCount; i++) {
-            resizedFrames.push(resizeFilter.getFrame(i));
-        }
-
-        for (const resizeFrame of resizedFrames) {
-            resizeFrame?.destroy();
-        }
-
-        // let currentFrame = diffedFrame;
-        // let index = 0;
-        // while (currentFrame.width > 2 && currentFrame.height > 2) {
-        //     let resizeFilter = resizeFilters[index];
-        //     if (!resizeFilter) {
-        //         const newWidth = Math.ceil(currentFrame.width / 2);
-        //         const newHeight = Math.ceil(currentFrame.height / 2);
-        //         resizeFilter = createAVFilter({
-        //             filter: `program_opencl=kernel=resize_half:size=${newWidth}x${newHeight}`,
-        //             frames: [
-        //                 {
-        //                     frame: currentFrame,
-        //                     timeBase: video,
-        //                 }
-        //             ],
-        //         });
-
-        //         resizeFilter.sendCommand("program_opencl", "source", resizeHalfKernel);
-
-        //         resizeFilters.push(resizeFilter);
-        //     }
-
-        //     const save = currentFrame;
-
-        //     resizeFilter.addFrame(currentFrame);
-        //     currentFrame = resizeFilter.getFrame();
-
-        //     // const jpeg = await toJpeg(currentFrame, 1);
-        //     // fs.writeFileSync(`/tmp/output-${index}.jpg`, jpeg);
-
-        //     if (save !== diffedFrame)
-        //         save.destroy();
-
-        //     index++;
-        // }
-
-        // currentFrame.destroy();
-        // const jpeg = diffedFrame.toJpeg(1);
-        // fs.writeFileSync('/tmp/output.jpg', jpeg);
+        using resizedFrame = resizeFilter.getFrame();
+        const data = await toJpeg(resizedFrame, 1);
+        fs.writeFileSync('/tmp/output.jpg', data);
 
         // bounding box pixel layout:
         // x

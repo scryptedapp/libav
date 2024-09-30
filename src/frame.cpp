@@ -52,6 +52,8 @@ Napi::Object AVFrameObject::Init(Napi::Env env, Napi::Object exports)
 
                                                                 InstanceMethod("toBuffer", &AVFrameObject::ToBuffer),
 
+                                                                InstanceMethod("fromBuffer", &AVFrameObject::FromBuffer),
+
                                                                 InstanceMethod("createEncoder", &AVFrameObject::CreateEncoder),
 
                                                             });
@@ -59,7 +61,7 @@ Napi::Object AVFrameObject::Init(Napi::Env env, Napi::Object exports)
     constructor = Napi::Persistent(func);
     constructor.SuppressDestruct();
 
-    // exports.Set("AVFrameObject", func);
+    exports.Set("AVFrame", func);
     return exports;
 }
 
@@ -75,6 +77,73 @@ Napi::Object AVFrameObject::NewInstance(Napi::Env env, AVFrame *frame)
 AVFrameObject::AVFrameObject(const Napi::CallbackInfo &info)
     : Napi::ObjectWrap<AVFrameObject>(info), frame_(nullptr)
 {
+    if (info.Length())
+    {
+        if (info.Length() < 3)
+        {
+            Napi::TypeError::New(info.Env(), "Expected 3 arguments: width, height, pixelFormat").ThrowAsJavaScriptException();
+            return;
+        }
+
+        if (!info[0].IsNumber())
+        {
+            Napi::TypeError::New(info.Env(), "Number expected for width").ThrowAsJavaScriptException();
+            return;
+        }
+        int width = info[0].As<Napi::Number>().Int32Value();
+
+        if (!info[1].IsNumber())
+        {
+            Napi::TypeError::New(info.Env(), "Number expected for height").ThrowAsJavaScriptException();
+            return;
+        }
+
+        int height = info[1].As<Napi::Number>().Int32Value();
+
+        if (!info[2].IsString())
+        {
+            Napi::TypeError::New(info.Env(), "String expected for pixel format").ThrowAsJavaScriptException();
+            return;
+        }
+
+        bool fillBlack = true;
+        if (info.Length() > 3 && info[3].IsBoolean())
+        {
+            fillBlack = info[3].As<Napi::Boolean>().Value();
+        }
+
+        std::string pixelFormat = info[2].As<Napi::String>().Utf8Value();
+        AVPixelFormat format = av_get_pix_fmt(pixelFormat.c_str());
+
+        // constrcut frame
+        frame_ = av_frame_alloc();
+        if (!frame_)
+        {
+            Napi::Error::New(info.Env(), "Could not allocate frame").ThrowAsJavaScriptException();
+            return;
+        }
+
+        frame_->width = width;
+        frame_->height = height;
+        frame_->format = format;
+
+        int ret = av_image_alloc(frame_->data, frame_->linesize, 300, 300, format, 1);
+        if (ret < 0)
+        {
+            av_frame_free(&frame_);
+            Napi::Error::New(info.Env(), AVErrorString(ret)).ThrowAsJavaScriptException();
+        }
+
+        if (fillBlack)
+        {
+            ptrdiff_t linesizes[AV_NUM_DATA_POINTERS];
+            for (int i = 0; i < AV_NUM_DATA_POINTERS; i++)
+            {
+                linesizes[i] = (ptrdiff_t)frame_->linesize[i];
+            }
+            av_image_fill_black(frame_->data, linesizes, format, frame_->color_range, frame_->width, frame_->height);
+        }
+    }
 }
 
 AVFrameObject::~AVFrameObject()
@@ -198,6 +267,49 @@ Napi::Value AVFrameObject::CreateEncoder(const Napi::CallbackInfo &info)
     return codecContextObject;
 }
 
+Napi::Value AVFrameObject::FromBuffer(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+    if (!frame_)
+    {
+        Napi::Error::New(env, "Frame object is null").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    if (frame_->hw_frames_ctx)
+    {
+        return env.Undefined();
+    }
+
+    if (!frame_->data[0])
+    {
+        Napi::Error::New(env, "Frame data is null").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    if (info.Length() < 1 || !info[0].IsBuffer())
+    {
+        Napi::TypeError::New(env, "Buffer expected").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    Napi::Buffer<uint8_t> buffer = info[0].As<Napi::Buffer<uint8_t>>();
+    if ((int)buffer.Length() != av_image_get_buffer_size((enum AVPixelFormat)frame_->format, frame_->width, frame_->height, 1))
+    {
+        Napi::Error::New(env, "Buffer size does not match frame size").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    int ret = av_image_fill_arrays(frame_->data, frame_->linesize, buffer.Data(), (enum AVPixelFormat)frame_->format, frame_->width, frame_->height, 1);
+    if (ret < 0)
+    {
+        Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    return env.Undefined();
+}
+
 Napi::Value AVFrameObject::ToBuffer(const Napi::CallbackInfo &info)
 {
     Napi::Env env = info.Env();
@@ -232,18 +344,11 @@ Napi::Value AVFrameObject::ToBuffer(const Napi::CallbackInfo &info)
         return env.Undefined();
     }
 
-    int frame_size = frame_->linesize[0] * height;
-    if (frame_size != buffer_size)
+    int ret = av_image_copy_to_buffer(byte_array, buffer_size, (const uint8_t *const *)frame_->data, frame_->linesize, (enum AVPixelFormat)frame_->format, width, height, 1);
+    if (ret < 0)
     {
-        int stride = buffer_size / height;
-        for (int y = 0; y < height; y++)
-        {
-            memcpy(byte_array + y * stride, frame_->data[0] + y * frame_->linesize[0], stride);
-        }
-    }
-    else
-    {
-        memcpy(byte_array, frame_->data[0], buffer_size);
+        Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();
+        return env.Undefined();
     }
 
     return buffer;

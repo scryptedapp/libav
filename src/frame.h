@@ -47,4 +47,5 @@ private:
     Napi::Value Destroy(const Napi::CallbackInfo &info);
     Napi::Value CreateEncoder(const Napi::CallbackInfo &info);
     Napi::Value ToBuffer(const Napi::CallbackInfo &info);
+    Napi::Value FromBuffer(const Napi::CallbackInfo &info);
 };

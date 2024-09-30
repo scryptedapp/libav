@@ -90,6 +90,7 @@ export interface AVFrame extends AVTimeBase {
     [Symbol.dispose](): void;
     destroy(): void;
     toBuffer(): Buffer;
+    fromBuffer(buffer: Buffer): void;
     createEncoder(options: {
         encoder: string,
         bitrate: number,
@@ -190,6 +191,15 @@ export function createAVFilter(options: {
     return new addon.AVFilter(options);
 }
 
+export function createAVFrame(
+    width: number,
+    height: number,
+    pixelFormat: string,
+    fillBlack = true,
+): AVFrame {
+    return new addon.AVFrame(width, height, pixelFormat, fillBlack);
+}
+
 export function getBinaryUrl() {
     const libc = process.env.LIBC || process.env.npm_config_libc ||
         (detectLibc.isNonGlibcLinuxSync() && detectLibc.familySync()) || ''
@@ -221,7 +231,7 @@ export async function toJpeg(frame: AVFrame, quality: number) {
                     timeBaseNum: 1,
                     timeBaseDen: 25,
                 },
-                        }
+            }
         ],
     });
 
@@ -249,7 +259,7 @@ export async function toJpeg(frame: AVFrame, quality: number) {
     using transcodePacket = await encoder.receivePacket();
     if (!transcodePacket)
         throw new Error('receivePacket needs more frames');
-    
+
     return transcodePacket.getData();
 }
 
