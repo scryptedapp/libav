@@ -17,6 +17,42 @@ const resizeHalfKernel = `
     }
 `;
 
+const blurKernel = `
+    __kernel void blur(__write_only image2d_t output_image, unsigned int index,
+            __read_only image2d_t input_image) {
+        int x = get_global_id(0);
+        int y = get_global_id(1);
+        int width = get_image_width(input_image);
+        int height = get_image_height(input_image);
+
+        int2 coords = (int2)(x, y);
+
+        if (x == 0 || y == 0 || x == width - 1 || y == height - 1) {
+            uint4 src = read_imageui(input_image, coords);
+            write_imageui(output_image, coords, src);
+            return;
+        }
+
+        uint4 tl = read_imageui(input_image, coords + (int2)(-1, -1));
+        uint4 t = read_imageui(input_image, coords + (int2)(0, -1));
+        uint4 tr = read_imageui(input_image, coords + (int2)(1, -1));
+        uint4 l = read_imageui(input_image, coords + (int2)(-1, 0));
+        uint4 c = read_imageui(input_image, coords);
+        uint4 r = read_imageui(input_image, coords + (int2)(1, 0));
+        uint4 bl = read_imageui(input_image, coords + (int2)(-1, 1));
+        uint4 b = read_imageui(input_image, coords + (int2)(0, 1));
+        uint4 br = read_imageui(input_image, coords + (int2)(1, 1));
+
+        uint4 sumCorners = tl + tr + bl + br;
+        uint4 sixteenthCorners = sumCorners / 16;
+        uint4 sumSides = t + l + r + b;
+        uint4 eighthSides = sumSides / 8;
+        uint4 result = c / 4 + sixteenthCorners + eighthSides;
+
+        write_imageui(output_image, coords, result);
+    }
+`;
+
 async function main() {
     setAVLogLevel('verbose');
     using readContext = createAVFormatContext();
@@ -50,41 +86,7 @@ async function main() {
                 ],
             });
 
-            blurFilter.sendCommand("program_opencl", "source", `
-                __kernel void blur(__write_only image2d_t output_image, unsigned int index,
-                        __read_only image2d_t input_image) {
-                    int x = get_global_id(0);
-                    int y = get_global_id(1);
-                    int width = get_image_width(input_image);
-                    int height = get_image_height(input_image);
-
-                    int2 coords = (int2)(x, y);
-
-                    if (x == 0 || y == 0 || x == width - 1 || y == height - 1) {
-                        uint4 src = read_imageui(input_image, coords);
-                        write_imageui(output_image, coords, src);
-                        return;
-                    }
-
-                    uint4 tl = read_imageui(input_image, coords + (int2)(-1, -1));
-                    uint4 t = read_imageui(input_image, coords + (int2)(0, -1));
-                    uint4 tr = read_imageui(input_image, coords + (int2)(1, -1));
-                    uint4 l = read_imageui(input_image, coords + (int2)(-1, 0));
-                    uint4 c = read_imageui(input_image, coords);
-                    uint4 r = read_imageui(input_image, coords + (int2)(1, 0));
-                    uint4 bl = read_imageui(input_image, coords + (int2)(-1, 1));
-                    uint4 b = read_imageui(input_image, coords + (int2)(0, 1));
-                    uint4 br = read_imageui(input_image, coords + (int2)(1, 1));
-
-                    uint4 sumCorners = tl + tr + bl + br;
-                    uint4 sixteenthCorners = sumCorners / 16;
-                    uint4 sumSides = t + l + r + b;
-                    uint4 eighthSides = sumSides / 8;
-                    uint4 result = c / 4 + sixteenthCorners + eighthSides;
-
-                    write_imageui(output_image, coords, result);
-                }
-            `);
+            blurFilter.sendCommand("program_opencl", "source", blurKernel);
         }
 
         if (!blurredFrame) {
@@ -200,12 +202,6 @@ async function main() {
         using resizedFrame = resizeFilter.getFrame();
         const data = await toJpeg(resizedFrame, 1);
         fs.writeFileSync('/tmp/output.jpg', data);
-
-        // bounding box pixel layout:
-        // x
-        // y
-        // w
-        // h
     }
 }
 
