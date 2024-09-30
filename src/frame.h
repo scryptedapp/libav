@@ -41,9 +41,10 @@ private:
     void SetPTS(const Napi::CallbackInfo &info, const Napi::Value &value);
     Napi::Value GetDTS(const Napi::CallbackInfo &info);
     void SetDTS(const Napi::CallbackInfo &info, const Napi::Value &value);
+    Napi::Value GetHardware(const Napi::CallbackInfo &info);
+    Napi::Value GetSoftware(const Napi::CallbackInfo &info);
 
     Napi::Value Destroy(const Napi::CallbackInfo &info);
-    Napi::Value ToJPEG(const Napi::CallbackInfo &info);
     Napi::Value CreateEncoder(const Napi::CallbackInfo &info);
     Napi::Value ToBuffer(const Napi::CallbackInfo &info);
 };

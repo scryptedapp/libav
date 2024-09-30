@@ -11,6 +11,9 @@
         "typeinfo": "cpp",
         "variant": "cpp",
         "ios": "c",
-        "avfilter.h": "c"
+        "avfilter.h": "c",
+        "any": "cpp",
+        "vector": "cpp",
+        "array": "cpp"
     }
 }

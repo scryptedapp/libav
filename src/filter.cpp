@@ -423,9 +423,9 @@ Napi::Value AVFilterGraphObject::AddFrame(const Napi::CallbackInfo &info)
 Napi::Value AVFilterGraphObject::GetFrame(const Napi::CallbackInfo &info)
 {
     unsigned long index = 0;
-    if (info.Length() > 1 && info[1].IsNumber())
+    if (info.Length() && info[0].IsNumber())
     {
-        index = info[1].As<Napi::Number>().Int32Value();
+        index = info[0].As<Napi::Number>().Int32Value();
     }
 
     if (buffersink_ctxs.size() <= index)

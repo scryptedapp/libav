@@ -79,6 +79,8 @@ export interface AVFrame extends AVTimeBase {
     readonly width: number;
     readonly height: number;
     readonly pixelFormat: string;
+    readonly hardwareDeviceType: string;
+    readonly softwareFormat: string;
 
     timeBaseNum: number;
     timeBaseDen: number;
@@ -88,11 +90,6 @@ export interface AVFrame extends AVTimeBase {
     [Symbol.dispose](): void;
     destroy(): void;
     toBuffer(): Buffer;
-    /**
-     *
-     * @param quality 1-31. Lower is better quality.
-     */
-    toJpeg(quality: number): Buffer;
     createEncoder(options: {
         encoder: string,
         bitrate: number,
@@ -208,6 +205,75 @@ export function getBinaryUrl() {
     const url = `https://github.com/scryptedapp/libav/releases/download/v${version}/${packageName}`;
 
     return url;
+}
+
+export async function toJpeg(frame: AVFrame, quality: number) {
+    let filterString = `scale,format=yuvj420p`;
+    if (frame.hardwareDeviceType)
+        filterString = `hwdownload,format=${frame.softwareFormat},${filterString}`;
+
+    using filter = createAVFilter({
+        filter: filterString,
+        frames: [
+            {
+                frame,
+                timeBase: {
+                    timeBaseNum: 1,
+                    timeBaseDen: 25,
+                },
+                        }
+        ],
+    });
+
+    filter.addFrame(frame);
+    using softwareFrame = filter.getFrame();
+
+    using encoder = softwareFrame.createEncoder({
+        encoder: 'mjpeg',
+        bitrate: 2000000,
+        timeBase: {
+            timeBaseNum: 1,
+            timeBaseDen: 25,
+        },
+        opts: {
+            quality,
+            qmin: quality,
+            qmax: quality,
+        }
+    });
+
+    const sent = await encoder.sendFrame(softwareFrame);
+    if (!sent)
+        throw new Error('sendFrame failed');
+
+    using transcodePacket = await encoder.receivePacket();
+    if (!transcodePacket)
+        throw new Error('receivePacket needs more frames');
+    
+    return transcodePacket.getData();
+}
+
+export async function toBuffer(frame: AVFrame) {
+    if (!frame.hardwareDeviceType)
+        return frame.toBuffer();
+
+    const filterString = `hwdownload,format=${frame.softwareFormat}`;
+    using filter = createAVFilter({
+        filter: filterString,
+        frames: [
+            {
+                frame,
+                timeBase: {
+                    timeBaseNum: 1,
+                    timeBaseDen: 25,
+                },
+            }
+        ],
+    });
+
+    filter.addFrame(frame);
+    using softwareFrame = filter.getFrame();
+    return softwareFrame.toBuffer();
 }
 
 export const version: string = packageJson.version;

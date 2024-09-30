@@ -42,13 +42,15 @@ Napi::Object AVFrameObject::Init(Napi::Env env, Napi::Object exports)
 
                                                                 AVFrameObject::InstanceAccessor("dts", &AVFrameObject::GetDTS, &AVFrameObject::SetDTS),
 
+                                                                AVFrameObject::InstanceAccessor("hardwareDeviceType", &AVFrameObject::GetHardware, NULL),
+
+                                                                AVFrameObject::InstanceAccessor("softwareFormat", &AVFrameObject::GetSoftware, NULL),
+
                                                                 InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVFrameObject::Destroy),
 
                                                                 InstanceMethod("destroy", &AVFrameObject::Destroy),
 
                                                                 InstanceMethod("toBuffer", &AVFrameObject::ToBuffer),
-
-                                                                InstanceMethod("toJpeg", &AVFrameObject::ToJPEG),
 
                                                                 InstanceMethod("createEncoder", &AVFrameObject::CreateEncoder),
 
@@ -77,79 +79,6 @@ AVFrameObject::AVFrameObject(const Napi::CallbackInfo &info)
 
 AVFrameObject::~AVFrameObject()
 {
-}
-
-Napi::Value AVFrameObject::ToJPEG(const Napi::CallbackInfo &info)
-{
-    Napi::Env env = info.Env();
-
-    if (info.Length() < 1 || !info[0].IsNumber())
-    {
-        Napi::TypeError::New(env, "String expected").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    if (!frame_)
-    {
-        Napi::Error::New(env, "Frame object is null").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    const AVCodec *codec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
-    if (!codec)
-    {
-        Napi::Error::New(env, "Failed to find MJPEG codec").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    AVCodecContext *c = avcodec_alloc_context3(codec);
-    if (!c)
-    {
-        Napi::Error::New(env, "Failed to allocate codec context").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    c->bit_rate = 2000000; // This is generally less relevant for single images
-    c->width = frame_->width;
-    c->height = frame_->height;
-    c->pix_fmt = (enum AVPixelFormat)frame_->format;
-    c->time_base.num = 1;
-    c->time_base.den = 25;
-
-    // Set the JPEG quality
-    int quality = info[0].As<Napi::Number>().Int32Value(); // 1-31, lower is better quality
-    av_opt_set_int(c, "qscale", quality, 0);               // Set the quality scale (1-31, lower is better quality)
-    av_opt_set_int(c, "qmin", quality, 0);                 // Set the minimum quality
-    av_opt_set_int(c, "qmax", quality, 0);                 // Set the maximum quality
-
-    int ret;
-    if ((ret = avcodec_open2(c, codec, NULL)) < 0)
-    {
-        avcodec_free_context(&c);
-        Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    if ((ret = avcodec_send_frame(c, frame_)) < 0)
-    {
-        avcodec_free_context(&c);
-        Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    AVPacket *pkt = av_packet_alloc();
-    if ((ret = avcodec_receive_packet(c, pkt)) < 0)
-    {
-        avcodec_free_context(&c);
-        Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    Napi::Buffer<uint8_t> buffer = Napi::Buffer<uint8_t>::Copy(env, pkt->data, pkt->size);
-    av_packet_free(&pkt);
-    avcodec_free_context(&c);
-
-    return buffer;
 }
 
 Napi::Value AVFrameObject::CreateEncoder(const Napi::CallbackInfo &info)
@@ -275,6 +204,11 @@ Napi::Value AVFrameObject::ToBuffer(const Napi::CallbackInfo &info)
     if (!frame_)
     {
         Napi::Error::New(env, "Frame object is null").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    if (frame_->hw_frames_ctx)
+    {
         return env.Undefined();
     }
 
@@ -460,4 +394,42 @@ void AVFrameObject::SetDTS(const Napi::CallbackInfo &info, const Napi::Value &va
         return;
     }
     frame_->pkt_dts = value.As<Napi::Number>().Int64Value();
+}
+
+Napi::Value AVFrameObject::GetHardware(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+    if (!frame_)
+    {
+        return env.Undefined();
+    }
+    if (frame_->hw_frames_ctx)
+    {
+        AVHWFramesContext *frames_ctx = (AVHWFramesContext *)(frame_->hw_frames_ctx->data);
+        AVBufferRef *hw_device_ctx = frames_ctx->device_ref;
+        if (hw_device_ctx)
+        {
+            AVHWDeviceContext *device_ctx = (AVHWDeviceContext *)(hw_device_ctx->data);
+            // type to string
+            std::string type = av_hwdevice_get_type_name(device_ctx->type);
+            return Napi::String::New(env, type.c_str());
+        }
+    }
+    return env.Null();
+}
+
+Napi::Value AVFrameObject::GetSoftware(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+    if (!frame_)
+    {
+        return env.Undefined();
+    }
+    if (frame_->hw_frames_ctx)
+    {
+        AVHWFramesContext *frames_ctx = (AVHWFramesContext *)(frame_->hw_frames_ctx->data);
+        std::string format = av_get_pix_fmt_name(frames_ctx->sw_format);
+        return Napi::String::New(env, format.c_str());
+    }
+    return env.Null();
 }
