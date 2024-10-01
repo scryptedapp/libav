@@ -63,7 +63,7 @@ jobs:
     - run: rm -f FFmpeg/ffmpeg
       if: ${{ matrix.os != 'self-hosted-windows-x86_64' }}
 
-    - run: rm -Force FFmpeg/ffmpeg.exe
+    - run: rm -Force -ErrorAction SilentlyContinue FFmpeg/ffmpeg.exe
       if: ${{ matrix.os == 'self-hosted-windows-x86_64' }}
 
     - run: npm run prebuildify-${{ matrix.os }}
