@@ -161,6 +161,7 @@
                             "-ldrm",
                             "-lva",
                             "-lva-drm",
+                            "-lOpenCL",
                         ],
                         "ldflags": ["-Wl,-Bsymbolic"],
                     },
