@@ -77,7 +77,7 @@ async function main() {
 
         if (!blurFilter) {
             blurFilter = createAVFilter({
-                filter: 'hwmap,program_opencl=kernel=blur',
+                filter: 'hwmap=mode=read,program_opencl=kernel=blur',
                 hardwareDevice: 'opencl',
                 frames: [
                     {
@@ -93,6 +93,20 @@ async function main() {
         if (!blurredFrame) {
             blurFilter.addFrame(frame);
             blurredFrame = blurFilter.getFrame();
+
+            using softwareFrame = createAVFrame(blurredFrame.width, blurredFrame.height, 'nv12');
+            using testFilter = createAVFilter({
+                filter: 'scale,hwupload',
+                hardwareDeviceFrame: blurredFrame,
+                frames: [
+                    {
+                        frame: softwareFrame,
+                        timeBase: video,
+                    }
+                ],
+            });
+            testFilter.addFrame(softwareFrame);
+            using testFrame = testFilter.getFrame();            
             continue;
         }
 

@@ -72,7 +72,34 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
     Napi::Value hardwareDeviceNameValue = options.Get("hardwareDeviceName");
     if (hardwareDeviceNameValue.IsString())
     {
+        if (!hardwareDevice.size())
+        {
+            Napi::TypeError::New(env, "hardwareDevice must be set if hardwareDeviceName is set").ThrowAsJavaScriptException();
+            return;
+        }
         hardwareDeviceName = hardwareDeviceNameValue.As<Napi::String>().Utf8Value();
+    }
+
+    AVBufferRef *hw_device_ctx = NULL;
+    Napi::Value hardwareDeviceFrame = options.Get("hardwareDeviceFrame");
+    if (hardwareDeviceFrame.IsObject())
+    {
+        if (hardwareDevice.size())
+        {
+            Napi::TypeError::New(env, "hardwareDevice must not be set if hardwareDeviceFrame is set").ThrowAsJavaScriptException();
+            return;
+        }
+
+        AVFrameObject *frameObject = Napi::ObjectWrap<AVFrameObject>::Unwrap(hardwareDeviceFrame.As<Napi::Object>());
+        AVFrame *frame = frameObject->frame_;
+        if (!frame || !frame->hw_frames_ctx)
+        {
+            Napi::TypeError::New(env, "Invalid hardwareDeviceFrame").ThrowAsJavaScriptException();
+            return;
+        }
+
+        AVHWFramesContext *frames_ctx = (AVHWFramesContext *)(frame->hw_frames_ctx->data);
+        hw_device_ctx = frames_ctx->device_ref;
     }
 
     Napi::Value framesValue = options.Get("frames");
@@ -263,12 +290,15 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
         }
 
         const char *hardwareDeviceNameStr = hardwareDeviceName.length() ? hardwareDeviceName.c_str() : nullptr;
-        AVBufferRef *hw_device_ctx = NULL;
         if (av_hwdevice_ctx_create(&hw_device_ctx, type, hardwareDeviceNameStr, NULL, 0) < 0)
         {
             Napi::Error::New(env, "Failed to create hardware device context").ThrowAsJavaScriptException();
             goto end;
         }
+    }
+
+    if (hw_device_ctx)
+    {
         for (unsigned int i = 0; i < filter_graph->nb_filters; i++)
         {
             AVFilterContext *f = filter_graph->filters[i];
@@ -284,7 +314,6 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
             }
         }
     }
-
 
     for (unsigned int i = 0; i < frames.size(); i++)
     {
@@ -406,7 +435,7 @@ Napi::Value AVFilterGraphObject::AddFrame(const Napi::CallbackInfo &info)
         Napi::TypeError::New(info.Env(), "Buffersrc context is null").ThrowAsJavaScriptException();
         return info.Env().Undefined();
     }
-    
+
     AVFilterContext *buffersrc_ctx = buffersrc_ctxs[index];
 
     // Feed the frame to the buffer source filter

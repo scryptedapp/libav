@@ -245,7 +245,7 @@ async function encodeJpeg(softwareFrame: AVFrame, quality: number) {
 
 export async function toJpeg(frame: AVFrame, quality: number) {
     if (frame.pixelFormat === 'yuvj420p')
-        return encodeJpeg(frame, quality);
+        return await encodeJpeg(frame, quality);
 
     let filterString = `scale,format=yuvj420p`;
     if (frame.hardwareDeviceType)
@@ -266,8 +266,10 @@ export async function toJpeg(frame: AVFrame, quality: number) {
 
     filter.addFrame(frame);
     using softwareFrame = filter.getFrame();
+    softwareFrame.pts = 0;
+    softwareFrame.dts = 0;
 
-    return encodeJpeg(softwareFrame, quality);
+    return await encodeJpeg(softwareFrame, quality);
 }
 
 export async function toBuffer(frame: AVFrame) {
