@@ -132,7 +132,7 @@ AVFrameObject::AVFrameObject(const Napi::CallbackInfo &info)
         frame_->height = height;
         frame_->format = format;
 
-        int ret = av_frame_get_buffer(frame_, 1);
+        int ret = av_frame_get_buffer(frame_, 0);
         if (ret < 0)
         {
             av_frame_free(&frame_);

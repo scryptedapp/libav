@@ -56,9 +56,6 @@ const blurKernel = `
 async function main() {
     setAVLogLevel('verbose');
 
-
-    const derp = createAVFrame(2592, 1944, 'yuvj420p', true);
-
     using readContext = createAVFormatContext();
     readContext.open("rtsp://scrypted-nvr:50757/68c1f365ed3e15b4");
     const video = readContext.streams.find(s => s.type === 'video')!;
