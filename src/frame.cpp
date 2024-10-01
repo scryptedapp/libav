@@ -114,8 +114,13 @@ AVFrameObject::AVFrameObject(const Napi::CallbackInfo &info)
 
         std::string pixelFormat = info[2].As<Napi::String>().Utf8Value();
         AVPixelFormat format = av_get_pix_fmt(pixelFormat.c_str());
+        if (format == AV_PIX_FMT_NONE)
+        {
+            Napi::Error::New(info.Env(), "Invalid pixel format").ThrowAsJavaScriptException();
+            return;
+        }
 
-        // constrcut frame
+        // construct frame
         frame_ = av_frame_alloc();
         if (!frame_)
         {
@@ -127,7 +132,7 @@ AVFrameObject::AVFrameObject(const Napi::CallbackInfo &info)
         frame_->height = height;
         frame_->format = format;
 
-        int ret = av_image_alloc(frame_->data, frame_->linesize, 300, 300, format, 1);
+        int ret = av_image_alloc(frame_->data, frame_->linesize, width, height, format, 1);
         if (ret < 0)
         {
             av_frame_free(&frame_);
