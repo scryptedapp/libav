@@ -156,7 +156,7 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
 
     // threadCount
     Napi::Value threadCountValue = options.Get("threadCount");
-    unsigned int threadCount = -1;
+    int threadCount = -1;
     if (threadCountValue.IsNumber())
     {
         threadCount = threadCountValue.As<Napi::Number>().Int32Value();
