@@ -182,6 +182,7 @@ export function createAVFilter(options: {
         frame: AVFrame,
         timeBase: AVTimeBase,
     }[],
+    threadCount?: number,
     hardwareDevice?: string,
     hardwareDeviceName?: string,
     hardwareDeviceFrame?: AVFrame;

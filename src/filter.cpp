@@ -154,6 +154,14 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
         outCount = outCountValue.As<Napi::Number>().Int32Value();
     }
 
+    // threadCount
+    Napi::Value threadCountValue = options.Get("threadCount");
+    unsigned int threadCount = -1;
+    if (threadCountValue.IsNumber())
+    {
+        threadCount = threadCountValue.As<Napi::Number>().Int32Value();
+    }
+
     std::string filter_descr = filterValue.As<Napi::String>().Utf8Value();
 
     char args[512];
@@ -164,6 +172,8 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
     AVFilterInOut *inputs = nullptr;
 
     struct AVFilterGraph *filter_graph = avfilter_graph_alloc();
+    if (threadCount > 0)
+        filter_graph->nb_threads = threadCount;
     avfilter_graph_set_auto_convert(filter_graph, AVFILTER_AUTO_CONVERT_NONE);
     if (!filter_graph)
     {
