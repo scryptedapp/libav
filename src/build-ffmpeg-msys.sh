@@ -20,7 +20,7 @@ then
   fi
 fi
 
-pacman --noconfirm -S yasm pkg-config clang diffutils make
+pacman --noconfirm -S yasm nasm pkg-config clang diffutils make
 export PKG_CONFIG_PATH=$PWD/../_vplinstall/lib/pkgconfig:$PWD/../_nvinstall/lib/pkgconfig:$PKG_CONFIG_PATH
 
 # the --enable-nvdec is necessary for build sanity checking, the build will configure
