@@ -13,6 +13,7 @@ function check_ffmpeg() {
 }
 
 sudo apt -y update
+# yasm can be dropped
 sudo apt -y install libva-dev libdrm-dev yasm nasm cmake ocl-icd-opencl-dev
 
 ARCH=$(arch)

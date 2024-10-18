@@ -20,6 +20,7 @@ then
   fi
 fi
 
+# yasm can be dropped
 pacman --noconfirm -S yasm nasm pkg-config clang diffutils make
 export PKG_CONFIG_PATH=$PWD/../_vplinstall/lib/pkgconfig:$PWD/../_nvinstall/lib/pkgconfig:$PKG_CONFIG_PATH
 
