@@ -13,7 +13,7 @@ function check_ffmpeg() {
 }
 
 sudo apt -y update
-sudo apt -y install libva-dev libdrm-dev yasm cmake ocl-icd-opencl-dev
+sudo apt -y install libva-dev libdrm-dev yasm nasm cmake ocl-icd-opencl-dev
 
 ARCH=$(arch)
 if [ "$ARCH" = "x86_64" ]
