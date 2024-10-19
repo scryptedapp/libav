@@ -12,6 +12,8 @@ extern "C"
 #include "error.h"
 #include "filter.h"
 
+#include "ffmpeg-graphparser.cpp"
+
 Napi::FunctionReference AVFilterGraphObject::constructor;
 
 Napi::Object AVFilterGraphObject::Init(Napi::Env env, Napi::Object exports)
@@ -308,8 +310,8 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
         }
     }
 
-    if ((ret = avfilter_graph_parse_ptr(filter_graph, filter_descr.c_str(),
-                                        &inputs, &outputs, NULL)) < 0)
+    if ((ret = avfilter_graph_parse_ptr2(filter_graph, filter_descr.c_str(),
+                                        &inputs, &outputs, hw_device_ctx)) < 0)
     {
         Napi::Error::New(env, "Cannot parse filter graph").ThrowAsJavaScriptException();
         goto end;
@@ -330,24 +332,6 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
         {
             Napi::Error::New(env, "Failed to create hardware device context").ThrowAsJavaScriptException();
             goto end;
-        }
-    }
-
-    if (hw_device_ctx)
-    {
-        for (unsigned int i = 0; i < filter_graph->nb_filters; i++)
-        {
-            AVFilterContext *f = filter_graph->filters[i];
-
-            if (!(f->filter->flags & AVFILTER_FLAG_HWDEVICE))
-                continue;
-            f->hw_device_ctx = av_buffer_ref(hw_device_ctx);
-            if (!f->hw_device_ctx)
-            {
-                av_buffer_unref(&hw_device_ctx);
-                Napi::Error::New(env, "Failed to set hardware device context").ThrowAsJavaScriptException();
-                goto end;
-            }
         }
     }
 
