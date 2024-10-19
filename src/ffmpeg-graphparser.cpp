@@ -280,7 +280,7 @@ end:
 
     if (ret < 0) {
         av_log(graph, AV_LOG_ERROR, "Error processing filtergraph: %s\n",
-               av_err2str(ret));
+               AVErrorString(ret).c_str());
 
         while (graph->nb_filters)
             avfilter_free(graph->filters[0]);
