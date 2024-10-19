@@ -20,6 +20,8 @@
         "bitset": "c",
         "iterator": "c",
         "memory": "c",
-        "sstream": "c"
+        "sstream": "c",
+        "queue": "cpp",
+        "stack": "cpp"
     }
 }

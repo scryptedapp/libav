@@ -188,24 +188,50 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
         int timeBaseNum = timeBase.Get("timeBaseNum").As<Napi::Number>().Int32Value();
         int timeBaseDen = timeBase.Get("timeBaseDen").As<Napi::Number>().Int32Value();
 
-        enum AVPixelFormat pix_fmt = AV_PIX_FMT_YUVJ420P;
-        if (frame_->hw_frames_ctx)
-        {
-            AVHWFramesContext *frames_ctx = (AVHWFramesContext *)(frame_->hw_frames_ctx->data);
-            pix_fmt = frames_ctx->format;
-        }
-
         snprintf(args, sizeof(args),
                  "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
-                 frame_->width, frame_->height, pix_fmt,
+                 frame_->width, frame_->height, frame_->format,
                  timeBaseNum, timeBaseDen,
                  1, 1);
 
         char name[512];
         snprintf(name, sizeof(name), frames.size() == 1 ? "in" : "in%d", i);
         AVFilterContext *buffersrc_ctx;
-        ret = avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, name,
-                                           args, NULL, filter_graph);
+
+        buffersrc_ctx = avfilter_graph_alloc_filter(filter_graph, buffersrc, name);
+        if (!buffersrc_ctx)
+        {
+            Napi::Error::New(env, "Cannot alloc buffer source").ThrowAsJavaScriptException();
+            goto end;
+        }
+
+        if (frame_->hw_frames_ctx)
+        {
+            AVBufferSrcParameters *src_params = av_buffersrc_parameters_alloc();
+            if (!src_params)
+            {
+                Napi::Error::New(env, "Failed to allocate buffer source parameters").ThrowAsJavaScriptException();
+                goto end;
+            }
+            src_params->hw_frames_ctx = av_buffer_ref(frame_->hw_frames_ctx);
+
+            ret = av_buffersrc_parameters_set(buffersrc_ctx, src_params);
+            av_freep(&src_params);
+
+            if (ret < 0)
+            {
+                Napi::Error::New(env, "Failed to set buffer source parameters").ThrowAsJavaScriptException();
+                goto end;
+            }
+        }
+
+        ret = avfilter_init_str(buffersrc_ctx, args);
+        if (ret < 0)
+        {
+            Napi::Error::New(env, "Cannot oimot buffer source").ThrowAsJavaScriptException();
+            goto end;
+        }
+
         if (ret < 0)
         {
             Napi::Error::New(env, "Cannot create buffer source").ThrowAsJavaScriptException();
@@ -322,34 +348,6 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
                 Napi::Error::New(env, "Failed to set hardware device context").ThrowAsJavaScriptException();
                 goto end;
             }
-        }
-    }
-
-    for (unsigned int i = 0; i < frames.size(); i++)
-    {
-        AVFrame *frame_ = frames[i];
-        AVFilterContext *buffersrc_ctx = buffersrc_ctxs[i];
-
-        if (!frame_->hw_frames_ctx)
-        {
-            continue;
-        }
-
-        AVBufferSrcParameters *src_params = av_buffersrc_parameters_alloc();
-        if (!src_params)
-        {
-            Napi::Error::New(env, "Failed to allocate buffer source parameters").ThrowAsJavaScriptException();
-            goto end;
-        }
-        src_params->hw_frames_ctx = av_buffer_ref(frame_->hw_frames_ctx);
-
-        ret = av_buffersrc_parameters_set(buffersrc_ctx, src_params);
-        av_freep(&src_params);
-
-        if (ret < 0)
-        {
-            Napi::Error::New(env, "Failed to set buffer source parameters").ThrowAsJavaScriptException();
-            goto end;
         }
     }
 
