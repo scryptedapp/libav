@@ -8,6 +8,8 @@ extern "C"
 #include <libavutil/avstring.h>
 }
 
+#include "error.h"
+
 #define WHITESPACES " \n\t\r"
 
 // print an error message if some options were not found
