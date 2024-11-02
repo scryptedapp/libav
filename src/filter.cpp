@@ -103,6 +103,23 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
         AVHWFramesContext *frames_ctx = (AVHWFramesContext *)(frame->hw_frames_ctx->data);
         hw_device_ctx = frames_ctx->device_ref;
     }
+    else if (hardwareDevice.length())
+    {
+        // get hardware device type by string
+        enum AVHWDeviceType type = av_hwdevice_find_type_by_name(hardwareDevice.c_str());
+        if (type == AV_HWDEVICE_TYPE_NONE)
+        {
+            Napi::Error::New(env, "Failed to find hardware device type").ThrowAsJavaScriptException();
+            goto end;
+        }
+
+        const char *hardwareDeviceNameStr = hardwareDeviceName.length() ? hardwareDeviceName.c_str() : nullptr;
+        if (av_hwdevice_ctx_create(&hw_device_ctx, type, hardwareDeviceNameStr, NULL, 0) < 0)
+        {
+            Napi::Error::New(env, "Failed to create hardware device context").ThrowAsJavaScriptException();
+            goto end;
+        }
+    }
 
     Napi::Value framesValue = options.Get("frames");
     if (!framesValue.IsArray())
@@ -315,24 +332,6 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
     {
         Napi::Error::New(env, "Cannot parse filter graph").ThrowAsJavaScriptException();
         goto end;
-    }
-
-    if (hardwareDevice.length())
-    {
-        // get hardware device type by string
-        enum AVHWDeviceType type = av_hwdevice_find_type_by_name(hardwareDevice.c_str());
-        if (type == AV_HWDEVICE_TYPE_NONE)
-        {
-            Napi::Error::New(env, "Failed to find hardware device type").ThrowAsJavaScriptException();
-            goto end;
-        }
-
-        const char *hardwareDeviceNameStr = hardwareDeviceName.length() ? hardwareDeviceName.c_str() : nullptr;
-        if (av_hwdevice_ctx_create(&hw_device_ctx, type, hardwareDeviceNameStr, NULL, 0) < 0)
-        {
-            Napi::Error::New(env, "Failed to create hardware device context").ThrowAsJavaScriptException();
-            goto end;
-        }
     }
 
     if ((ret = avfilter_graph_config(filter_graph, NULL)) < 0)
