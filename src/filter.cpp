@@ -110,14 +110,14 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
         if (type == AV_HWDEVICE_TYPE_NONE)
         {
             Napi::Error::New(env, "Failed to find hardware device type").ThrowAsJavaScriptException();
-            goto end;
+            return;
         }
 
         const char *hardwareDeviceNameStr = hardwareDeviceName.length() ? hardwareDeviceName.c_str() : nullptr;
         if (av_hwdevice_ctx_create(&hw_device_ctx, type, hardwareDeviceNameStr, NULL, 0) < 0)
         {
             Napi::Error::New(env, "Failed to create hardware device context").ThrowAsJavaScriptException();
-            goto end;
+            return;
         }
     }
 
