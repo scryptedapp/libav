@@ -1,0 +1,10 @@
+prefix=/c/VulkanSDK/1.3.280.0
+includedir=${prefix}/Include
+libdir=${prefix}/Lib
+
+Name: ffnvcodec
+Description: Vulkan
+Version: 1.3.280
+Cflags: -I${includedir}
+Libs: -L${libdir} -lglslang -lMachineIndependent -lOSDependent -lGenericCodeGen -lSPVRemapper -lSPIRV -lSPIRV-Tools-opt -lSPIRV-Tools -lstdc++ -lmsvcrt
+Libs.private: 
