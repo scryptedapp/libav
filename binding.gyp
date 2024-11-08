@@ -71,6 +71,9 @@
                             "<!@(node -p \"require('node-addon-api').include\")",
                             "<(module_root_dir)/FFmpeg",
                         ],
+                        "library_dirs": [
+                            "C:\\VulkanSDK\\1.3.280.0\\Lib"
+                        ],
                         "libraries": [
                             "<(module_root_dir)/FFmpeg/libavcodec/libavcodec.a",
                             "<(module_root_dir)/FFmpeg/libavfilter/libavfilter.a",
@@ -79,6 +82,12 @@
                             "<(module_root_dir)/FFmpeg/libswscale/libswscale.a",
                             "<(module_root_dir)/FFmpeg/libswresample/libswresample.a",
                             "<(module_root_dir)/_vplinstall/lib/vpl.lib",
+
+                            # vulkan
+                            "glslang.lib",
+                            "glslang-default-resource-limits.lib",
+                            "shaderc_combined.lib",
+
                             "Ws2_32.lib",
                             "mf.lib",
                             "Mfplat.lib",
