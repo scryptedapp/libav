@@ -162,6 +162,11 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
             return;
         }
         AVFrameObject *frameObject = Napi::ObjectWrap<AVFrameObject>::Unwrap(frameFrameValue.As<Napi::Object>());
+        if (!frameObject->frame_)
+        {
+            Napi::Error::New(env, "Invalid frame").ThrowAsJavaScriptException();
+            return;
+        }
         frames.push_back(frameObject->frame_);
     }
 
