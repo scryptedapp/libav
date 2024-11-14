@@ -189,7 +189,7 @@
                     },
                 ],
             ],
-            "cflags": ["-std=c++17"],
+            "cflags": ["-std=c++20"],
             "defines": ["NAPI_DISABLE_CPP_EXCEPTIONS"],
             "dependencies": ["<!(node -p \"require('node-addon-api').gyp\")"],
         }
