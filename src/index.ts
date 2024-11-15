@@ -5,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { x as tarx } from 'tar';
 import packageJson from '../package.json';
+import { IncomingMessage } from 'http';
 
 let addon: any;
 try {
@@ -67,7 +68,9 @@ export async function downloadAddon(installPath?: string) {
     const r = https.get(binaryUrl, {
         family: 4,
     });
-    const [response] = await once(r, 'response');
+    const [response] = await once(r, 'response') as [IncomingMessage];
+    if (!response.statusCode || (response.statusCode < 200 && response.statusCode >= 300))
+        throw new Error(`Failed to download libav binary: ${response.statusCode}`);
     const t = response.pipe(tarx({
         cwd: extractPath,
     }));
