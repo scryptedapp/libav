@@ -218,8 +218,9 @@ public:
 
                 if (packet->stream_index == streamIndex)
                 {
-
                     ret = avcodec_send_packet(codecContext, packet);
+                    av_packet_unref(packet);
+
                     // on decoder feed error, try again next packet.
                     // could be starting on a non keyframe or data corruption
                     // which may be recoverable.
