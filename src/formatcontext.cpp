@@ -216,27 +216,30 @@ public:
                     return;
                 }
 
-                if (packet->stream_index == streamIndex)
+                if (packet->stream_index != streamIndex)
                 {
-                    ret = avcodec_send_packet(codecContext, packet);
+                    // wrong stream, keep looking
                     av_packet_unref(packet);
-
-                    // on decoder feed error, try again next packet.
-                    // could be starting on a non keyframe or data corruption
-                    // which may be recoverable.
-                    if (ret)
-                    {
-                        av_packet_free(&packet);
-                        return;
-                    }
-
-                    break;
+                    continue;
                 }
 
+                ret = avcodec_send_packet(codecContext, packet);
                 av_packet_unref(packet);
+
+                // on decoder feed error, try again next packet.
+                // could be starting on a non keyframe or data corruption
+                // which may be recoverable.
+                if (ret)
+                {
+                    av_packet_free(&packet);
+                    return;
+                }
+
+                // successful decode, try reading frame.
+                break;
             }
 
-            // try reading frame again
+            // loop and try reading frame again
         }
     }
 
