@@ -22,6 +22,7 @@
         "memory": "c",
         "sstream": "c",
         "queue": "cpp",
-        "stack": "cpp"
+        "stack": "cpp",
+        "scale_eval.h": "c"
     }
 }
