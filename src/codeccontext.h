@@ -37,6 +37,7 @@ private:
     Napi::Value GetHardwareDevice(const Napi::CallbackInfo &info);
     Napi::Value GetPixelFormat(const Napi::CallbackInfo &info);
     Napi::Value GetHardwarePixelFormat(const Napi::CallbackInfo &info);
+    Napi::Value GetVendorInfo(const Napi::CallbackInfo &info);
     Napi::Value ReceiveFrame(const Napi::CallbackInfo &info);
     Napi::Value ReceivePacket(const Napi::CallbackInfo &info);
     Napi::Value SendPacket(const Napi::CallbackInfo &info);

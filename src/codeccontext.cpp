@@ -9,6 +9,10 @@ extern "C"
 #include <libavfilter/buffersrc.h>
 #include <libavfilter/avfilter.h>
 #include <libavutil/opt.h>
+
+#ifdef __linux__
+    extern const char *vaQueryVendorString(void *dpy)
+#endif
 }
 
 #include <thread>
@@ -59,6 +63,8 @@ Napi::Object AVCodecContextObject::Init(Napi::Env env, Napi::Object exports)
                                                                        AVCodecContextObject::InstanceAccessor("timeBaseNum", &AVCodecContextObject::GetTimeBaseNum, nullptr),
 
                                                                        AVCodecContextObject::InstanceAccessor("timeBaseDen", &AVCodecContextObject::GetTimeBaseDen, nullptr),
+
+                                                                       AVCodecContextObject::InstanceAccessor("vendorInfo", &AVCodecContextObject::GetVendorInfo, nullptr),
 
                                                                        InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVCodecContextObject::Destroy),
 
@@ -476,4 +482,47 @@ Napi::Value AVCodecContextObject::GetTimeBaseDen(const Napi::CallbackInfo &info)
     }
 
     return Napi::Number::New(env, codecContext->time_base.den);
+}
+
+Napi::Value AVCodecContextObject::GetVendorInfo(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+
+#ifndef __linux__
+    return env.Undefined();
+#else
+
+    if (!codecContext)
+    {
+        return env.Undefined();
+    }
+
+    const char *name = av_get_pix_fmt_name(hw_pix_fmt);
+    if (strcmp(name, 'vaapi'))
+    {
+        return env.Undefined();
+    }
+
+    AVHWDeviceContext *hw_device_ctx = codecContext->hw_device_ctx;
+    if (!hw_device_ctx)
+    {
+        return env.Undefined();
+    }
+    AVVAAPIDeviceContext *vaapi_device_ctx = (AVHWDeviceContext *)hw_device_ctx->data;
+    if (!vaapi_device_ctx)
+    {
+        return env.Undefined();
+    }
+
+    void *display = vaapi_device_ctx->display;
+    const char *driver = vaQueryVendorString(display);
+    if (!driver)
+    {
+        return env.Undefined();
+    }
+
+    Napi::Object obj = Napi::Object::New(env);
+    obj.Set("driver", Napi::String::New(env, driver));
+    return obj;
+#endif
 }

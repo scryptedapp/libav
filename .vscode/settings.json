@@ -23,6 +23,7 @@
         "sstream": "c",
         "queue": "cpp",
         "stack": "cpp",
-        "scale_eval.h": "c"
+        "scale_eval.h": "c",
+        "filters.h": "c"
     }
 }

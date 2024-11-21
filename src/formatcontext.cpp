@@ -418,7 +418,7 @@ Napi::Value AVFormatContextObject::CreateDecoder(const Napi::CallbackInfo &info)
 
     Napi::Env env = info.Env();
 
-    AVStream* stream = fmt_ctx_->streams[streamIndex];
+    AVStream *stream = fmt_ctx_->streams[streamIndex];
     AVCodecID codec_id = stream->codecpar->codec_id;
     const struct AVCodec *codec = avcodec_find_decoder(codec_id);
     Napi::Object codecContextReturn = AVCodecContextObject::NewInstance(env);
@@ -426,6 +426,7 @@ Napi::Value AVFormatContextObject::CreateDecoder(const Napi::CallbackInfo &info)
     codecContextObject->hw_device_value = AV_HWDEVICE_TYPE_NONE;
     AVBufferRef *hw_device_ctx = nullptr;
     int ret;
+    std::string deviceName;
 
     // args are hardwareDeviceName (optional) hardwareDeviceDecoder (optional)
     if (info.Length() > 1)
@@ -444,20 +445,38 @@ Napi::Value AVFormatContextObject::CreateDecoder(const Napi::CallbackInfo &info)
             return env.Undefined();
         }
 
-        // qsv path
+        // hwaccel decoder name (ie, hevc_qsv, which needs to be manually specified for some reason)
         if (info.Length() > 2)
         {
-            if (!info[2].IsString())
+            if (!info[2].IsUndefined() && !info[2].IsNull())
             {
-                Napi::Error::New(env, "Unexpected type in place of decoder string").ThrowAsJavaScriptException();
-                return env.Undefined();
-            }
+                if (!info[2].IsString())
+                {
+                    Napi::Error::New(env, "Unexpected type in place of decoder string").ThrowAsJavaScriptException();
+                    return env.Undefined();
+                }
 
-            codec = avcodec_find_decoder_by_name(info[2].As<Napi::String>().Utf8Value().c_str());
-            if (!codec)
+                codec = avcodec_find_decoder_by_name(info[2].As<Napi::String>().Utf8Value().c_str());
+                if (!codec)
+                {
+                    Napi::Error::New(env, "Decoder not found").ThrowAsJavaScriptException();
+                    return env.Undefined();
+                }
+            }
+        }
+
+        // specific device name (ie, /dev/dri/renderD128)
+        if (info.Length() > 3)
+        {
+            if (!info[3].IsUndefined() && !info[3].IsNull())
             {
-                Napi::Error::New(env, "Decoder not found").ThrowAsJavaScriptException();
-                return env.Undefined();
+                if (!info[3].IsString())
+                {
+                    Napi::Error::New(env, "Unexpected type in place of device string").ThrowAsJavaScriptException();
+                    return env.Undefined();
+                }
+
+                deviceName = info[3].As<Napi::String>().Utf8Value();
             }
         }
 
@@ -480,7 +499,7 @@ Napi::Value AVFormatContextObject::CreateDecoder(const Napi::CallbackInfo &info)
         }
 
         if ((ret = av_hwdevice_ctx_create(&hw_device_ctx, codecContextObject->hw_device_value,
-                                          NULL, NULL, 0)) < 0)
+                                          deviceName.length() ? deviceName.c_str() : nullptr, NULL, 0)) < 0)
         {
             // throw
             Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();

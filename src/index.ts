@@ -133,6 +133,7 @@ export interface AVCodecContext extends AVTimeBase {
      */
     readonly pixelFormat: string;
     readonly hardwarePixelFormat: string;
+    readonly vendorInfo: Record<string, any>;
 
     [Symbol.dispose](): void;
     destroy(): void;
@@ -159,7 +160,7 @@ export interface AVFormatContext {
 
     [Symbol.dispose](): void;
     open(input: string): void;
-    createDecoder(streamIndex: number, hardwareDevice?: string, decoder?: string): AVCodecContext;
+    createDecoder(streamIndex: number, hardwareDevice?: string, decoder?: string, deviceName?: string): AVCodecContext;
     readFrame(): Promise<AVPacket>;
     receiveFrame(streamIndex: number, codecContext: AVCodecContext): Promise<AVFrame>;
     create(format: string, callback: (buffer: Buffer) => void): void;
