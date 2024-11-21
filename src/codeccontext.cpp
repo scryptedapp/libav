@@ -488,6 +488,10 @@ Napi::Value AVCodecContextObject::GetVendorInfo(const Napi::CallbackInfo &info)
 {
     Napi::Env env = info.Env();
 
+    // compiler check for linux x64 to query vaapi
+#ifndef __x86_64__
+    return env.Undefined();
+#endif
 #ifndef __linux__
     return env.Undefined();
 #else
@@ -503,7 +507,7 @@ Napi::Value AVCodecContextObject::GetVendorInfo(const Napi::CallbackInfo &info)
         return env.Undefined();
     }
 
-    AVHWDeviceContext *hw_device_ctx = codecContext->hw_device_ctx;
+    AVBufferRef *hw_device_ctx = codecContext->hw_device_ctx;
     if (!hw_device_ctx)
     {
         return env.Undefined();
