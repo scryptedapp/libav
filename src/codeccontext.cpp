@@ -11,7 +11,7 @@ extern "C"
 #include <libavutil/opt.h>
 
 #ifdef __linux__
-    extern const char *vaQueryVendorString(void *dpy)
+    extern const char *vaQueryVendorString(void *dpy);
 #endif
 }
 
