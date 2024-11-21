@@ -11,6 +11,7 @@ extern "C"
 #include <libavutil/opt.h>
 
 #ifdef __linux__
+#include <libavutil/hwcontext_vaapi.h>
     extern const char *vaQueryVendorString(void *dpy);
 #endif
 }
@@ -507,12 +508,13 @@ Napi::Value AVCodecContextObject::GetVendorInfo(const Napi::CallbackInfo &info)
         return env.Undefined();
     }
 
-    AVBufferRef *hw_device_ctx = codecContext->hw_device_ctx;
-    if (!hw_device_ctx)
+    if (!codecContext->hw_device_ctx || !codecContext->hw_device_ctx->data)
     {
         return env.Undefined();
     }
-    AVVAAPIDeviceContext *vaapi_device_ctx = (AVHWDeviceContext *)hw_device_ctx->data;
+    AVHWDeviceContext *hw_device_ctx = (AVHWDeviceContext*)codecContext->hw_device_ctx->data;
+
+    AVVAAPIDeviceContext *vaapi_device_ctx = (AVVAAPIDeviceContext *)hw_device_ctx->hwctx;
     if (!vaapi_device_ctx)
     {
         return env.Undefined();
