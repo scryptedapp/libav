@@ -502,7 +502,7 @@ Napi::Value AVCodecContextObject::GetVendorInfo(const Napi::CallbackInfo &info)
     }
 
     const char *name = av_get_pix_fmt_name(hw_pix_fmt);
-    if (strcmp(name, 'vaapi'))
+    if (strcmp(name, "vaapi"))
     {
         return env.Undefined();
     }
