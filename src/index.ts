@@ -8,23 +8,21 @@ import packageJson from '../package.json';
 import { IncomingMessage } from 'http';
 
 let addon: any;
-try {
-    addon = require('../build/Release/addon');
-}
-catch (e) {
-}
 
-export function isInstalled() {
+export function isLoaded() {
     return !!addon;
 }
 
-export function loadAddon(addonPath: string, nr: NodeRequire = require) {
+export function loadAddon(addonPath = '../build/Release/addon', nr: NodeRequire = require) {
+    if (isLoaded())
+        return addon;
     addon = nr(addonPath);
+    return addon;
 }
 
 let installing: Promise<void> | undefined;
 export async function install(installPath?: string, nr: NodeRequire = require) {
-    if (addon)
+    if (isLoaded())
         return;
 
     if (installing)
@@ -173,11 +171,11 @@ export interface AVFormatContext {
 }
 
 export function setAVLogLevel(level: 'quiet' | 'panic' | 'fatal' | 'error' | 'warning' | 'info' | 'verbose' | 'debug' | 'trace') {
-    addon.setLogLevel(level);
+    loadAddon().setLogLevel(level);
 }
 
 export function createAVFormatContext(): AVFormatContext {
-    return new addon.AVFormatContext();
+    return new (loadAddon().AVFormatContext)();
 }
 
 export function createAVFilter(options: {
@@ -193,7 +191,7 @@ export function createAVFilter(options: {
     // outCount defaults to 1
     outCount?: number,
 }): AVFilter {
-    return new addon.AVFilter(options);
+    return new (loadAddon().AVFilter)(options);
 }
 
 export function createAVFrame(
@@ -202,7 +200,7 @@ export function createAVFrame(
     pixelFormat: string,
     fillBlack = true,
 ): AVFrame {
-    return new addon.AVFrame(width, height, pixelFormat, fillBlack);
+    return new (loadAddon().AVFrame)(width, height, pixelFormat, fillBlack);
 }
 
 export function getBinaryUrl() {
