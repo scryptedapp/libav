@@ -2,10 +2,10 @@ import detectLibc from 'detect-libc';
 import { once } from 'events';
 import { https } from 'follow-redirects';
 import fs from 'fs';
+import { IncomingMessage } from 'http';
 import path from 'path';
 import { x as tarx } from 'tar';
 import packageJson from '../package.json';
-import { IncomingMessage } from 'http';
 
 let addon: any;
 
@@ -13,7 +13,20 @@ export function isLoaded() {
     return !!addon;
 }
 
-export function loadAddon(addonPath = '../build/Release/addon', nr: NodeRequire = require) {
+function getReleasePath(installPath: string) {
+    return path.join(installPath, 'build/Release');
+}
+
+const packagePath = path.join(__dirname, '..');
+export function getAddonPath(installPath = packagePath) {
+    return path.join(getReleasePath(installPath), 'addon.node');
+}
+
+export function getFFmpegPath(installPath = packagePath) {
+    return path.join(getReleasePath(installPath), process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg');
+}
+
+export function loadAddon(addonPath = getAddonPath(), nr: NodeRequire = require) {
     if (isLoaded())
         return addon;
     addon = nr(addonPath);
@@ -21,23 +34,31 @@ export function loadAddon(addonPath = '../build/Release/addon', nr: NodeRequire 
 }
 
 let installing: Promise<void> | undefined;
-export async function install(installPath?: string, nr: NodeRequire = require) {
-    if (isLoaded())
-        return;
-
-    if (installing)
-        return installing;
-
-    const addonPath = path.join(installPath || '', 'build/Release/addon');
-    try {
-        loadAddon(addonPath, nr);
-        return;
+export async function install(installPath?: string, nr: NodeRequire | null = require) {
+    const addonPath = getAddonPath(installPath);
+    if (!nr) {
+        if (fs.existsSync(addonPath))
+            return;
     }
-    catch (e) {
+    else {
+        if (isLoaded())
+            return;
+
+        if (installing)
+            return installing;
+
+        try {
+            loadAddon(addonPath, nr);
+            return;
+        }
+        catch (e) {
+        }
     }
 
     installing = (async () => {
         await downloadAddon(installPath);
+        if (!nr)
+            return;
         loadAddon(addonPath, nr);
     })()
         .finally(() => {
