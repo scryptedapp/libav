@@ -4,7 +4,7 @@
   "dependencies": {
     "detect-libc": "^2.0.3",
     "follow-redirects": "^1.15.9",
-    "node-addon-api": "^8.1.0",
+    "node-addon-api": "^8.3.1",
     "tar": "^7.4.3"
   },
   "repository": {
@@ -31,20 +31,20 @@
     "node-gyp-build": "node-gyp build",
     "node-gyp-rebuild": "node-gyp rebuild",
     "build": "tsc -b ./src/tsconfig.json",
-    "install-prebuild": "prebuild-install || npm run node-gyp-rebuild",
-    "install-empty-note": "echo 'The empty string below prevents addon from being built.'",
-    "install": " ",
+    "install-note": "echo 'Use SKIP_SCRYPTED_LIBAV_PREBUILD=true to skip the prebuild for github action runner build process, etc.'",
+    "install": "node -e \"process.exit(process.env.SKIP_SCRYPTED_LIBAV_PREBUILD ? 0 : 1)\" || prebuild-install || npm run node-gyp-rebuild",
     "prepare": "npm run build",
     "release": "npm version patch && npm publish --access public && git push --tags",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
     "@types/follow-redirects": "^1.14.4",
-    "@types/node": "^22.5.4",
-    "node-gyp": "^10.2.0",
+    "@types/node": "^22.13.10",
+    "cross-env": "^7.0.3",
+    "node-gyp": "^11.1.0",
     "prebuild": "^13.0.1",
     "prebuild-install": "npm:@scrypted/prebuild-install@^7.1.9",
     "ts-node": "^10.9.2",
-    "typescript": "^5.5.4"
+    "typescript": "^5.8.2"
   }
 }

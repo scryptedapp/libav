@@ -59,7 +59,7 @@ jobs:
       with:
         node-version: 20.x
 
-    - run: npm install
+    - run: SKIP_SCRYPTED_LIBAV_PREBUILD=true npm install
 
     - run: rm -f FFmpeg/ffmpeg
       if: ${{ matrix.os != 'self-hosted-windows-x86_64' }}
