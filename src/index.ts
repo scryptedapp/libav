@@ -34,7 +34,7 @@ export function loadAddon(addonPath = getAddonPath(), nr: NodeRequire = require)
 }
 
 let installing: Promise<void> | undefined;
-export async function install(installPath?: string, nr: NodeRequire | null = require) {
+export async function install(installPath = packagePath, nr: NodeRequire | null = require) {
     const addonPath = getAddonPath(installPath);
     if (!nr) {
         if (fs.existsSync(addonPath))
