@@ -59,7 +59,11 @@ jobs:
       with:
         node-version: 20.x
 
-    - run: SKIP_SCRYPTED_LIBAV_PREBUILD=true npm install
+    - run: npm install
+      env:
+        # this is needed to avoid the prebuildify script from trying to rebuild
+        # the ffmpeg binary on every run.
+        SKIP_SCRYPTED_LIBAV_PREBUILD: true
 
     - run: rm -f FFmpeg/ffmpeg
       if: ${{ matrix.os != 'self-hosted-windows-x86_64' }}
