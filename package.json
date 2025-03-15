@@ -41,6 +41,7 @@
     "@types/follow-redirects": "^1.14.4",
     "@types/node": "^22.13.10",
     "cross-env": "^7.0.3",
+    "node-abi": "^4.2.0",
     "node-gyp": "^11.1.0",
     "prebuild": "^13.0.1",
     "prebuild-install": "npm:@scrypted/prebuild-install@^7.1.9",
