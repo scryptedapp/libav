@@ -23,6 +23,7 @@ extern "C"
 #include <thread>
 #include <v8.h>
 
+#include "formatcontext.h"
 #include "filter.h"
 #include "codeccontext.h"
 #include "packet.h"
@@ -99,30 +100,6 @@ void printAVError(int errnum)
 
     printf("Error: %s\n", errbuf);
 }
-
-class AVFormatContextObject : public Napi::ObjectWrap<AVFormatContextObject>
-{
-public:
-    static Napi::Object Init(Napi::Env env, Napi::Object exports);
-    AVFormatContextObject(const Napi::CallbackInfo &info);
-    ~AVFormatContextObject(); // Explicitly declare the destructor
-    static Napi::FunctionReference constructor;
-    AVFormatContext *fmt_ctx_;
-    Napi::ThreadSafeFunction callbackRef;
-
-private:
-    Napi::Value Open(const Napi::CallbackInfo &info);
-    Napi::Value Close(const Napi::CallbackInfo &info);
-    Napi::Value CreateDecoder(const Napi::CallbackInfo &info);
-    Napi::Value GetMetadata(const Napi::CallbackInfo &info);
-    Napi::Value ReadFrame(const Napi::CallbackInfo &info);
-    Napi::Value ReceiveFrame(const Napi::CallbackInfo &info);
-    Napi::Value Create(const Napi::CallbackInfo &info);
-    Napi::Value NewStream(const Napi::CallbackInfo &info);
-    Napi::Value WriteFrame(const Napi::CallbackInfo &info);
-    Napi::Value GetStreams(const Napi::CallbackInfo &info);
-    Napi::Value CreateSDP(const Napi::CallbackInfo &info);
-};
 
 class ReadFrameWorker : public Napi::AsyncWorker
 {

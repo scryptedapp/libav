@@ -137,6 +137,7 @@ export interface AVBitstreamFilter {
     setOption(name: string, value: string): void;
     sendPacket(packet: AVPacket): void;
     receivePacket(): AVPacket;
+    copyParameters(formatContext: AVFormatContext, streamIndex: number): void;
 }
 
 export interface AVPacket {
