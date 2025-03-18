@@ -67,6 +67,10 @@ Napi::Object AVCodecContextObject::Init(Napi::Env env, Napi::Object exports)
 
                                                                        AVCodecContextObject::InstanceAccessor("vendorInfo", &AVCodecContextObject::GetVendorInfo, nullptr),
 
+                                                                       AVCodecContextObject::InstanceAccessor("keyIntMin", &AVCodecContextObject::GetKeyIntMin, &AVCodecContextObject::SetKeyIntMin),
+
+                                                                       AVCodecContextObject::InstanceAccessor("gopSize", &AVCodecContextObject::GetGopSize, &AVCodecContextObject::SetGopSize),
+
                                                                        InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVCodecContextObject::Destroy),
 
                                                                        InstanceMethod("destroy", &AVCodecContextObject::Destroy),
@@ -531,4 +535,64 @@ Napi::Value AVCodecContextObject::GetVendorInfo(const Napi::CallbackInfo &info)
     obj.Set("driver", Napi::String::New(env, driver));
     return obj;
 #endif
+}
+
+Napi::Value AVCodecContextObject::GetKeyIntMin(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+
+    if (!codecContext)
+    {
+        return env.Undefined();
+    }
+
+    return Napi::Number::New(env, codecContext->keyint_min);
+}
+
+void AVCodecContextObject::SetKeyIntMin(const Napi::CallbackInfo &info, const Napi::Value &value)
+{
+    Napi::Env env = info.Env();
+
+    if (!codecContext)
+    {
+        return;
+    }
+
+    if (!value.IsNumber())
+    {
+        Napi::TypeError::New(env, "keyIntMin must be a number").ThrowAsJavaScriptException();
+        return;
+    }
+
+    codecContext->keyint_min = value.As<Napi::Number>().Int32Value();
+}
+
+Napi::Value AVCodecContextObject::GetGopSize(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+
+    if (!codecContext)
+    {
+        return env.Undefined();
+    }
+
+    return Napi::Number::New(env, codecContext->gop_size);
+}
+
+void AVCodecContextObject::SetGopSize(const Napi::CallbackInfo &info, const Napi::Value &value)
+{
+    Napi::Env env = info.Env();
+
+    if (!codecContext)
+    {
+        return;
+    }
+
+    if (!value.IsNumber())
+    {
+        Napi::TypeError::New(env, "gopSize must be a number").ThrowAsJavaScriptException();
+        return;
+    }
+
+    codecContext->gop_size = value.As<Napi::Number>().Int32Value();
 }

@@ -46,6 +46,8 @@ Napi::Object AVFrameObject::Init(Napi::Env env, Napi::Object exports)
 
                                                                 AVFrameObject::InstanceAccessor("softwareFormat", &AVFrameObject::GetSoftware, NULL),
 
+                                                                AVFrameObject::InstanceAccessor("flags", &AVFrameObject::GetFlags, &AVFrameObject::SetFlags),
+
                                                                 InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVFrameObject::Destroy),
 
                                                                 InstanceMethod("destroy", &AVFrameObject::Destroy),
@@ -535,6 +537,7 @@ Napi::Value AVFrameObject::GetSoftware(const Napi::CallbackInfo &info)
     {
         return env.Undefined();
     }
+
     if (frame_->hw_frames_ctx)
     {
         AVHWFramesContext *frames_ctx = (AVHWFramesContext *)(frame_->hw_frames_ctx->data);
@@ -542,4 +545,30 @@ Napi::Value AVFrameObject::GetSoftware(const Napi::CallbackInfo &info)
         return Napi::String::New(env, format.c_str());
     }
     return env.Null();
+}
+
+Napi::Value AVFrameObject::GetFlags(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+    if (!frame_)
+    {
+        return env.Undefined();
+    }
+    return Napi::Number::New(env, frame_->flags);
+}
+
+void AVFrameObject::SetFlags(const Napi::CallbackInfo &info, const Napi::Value &value)
+{
+    Napi::Env env = info.Env();
+    if (!frame_)
+    {
+        Napi::Error::New(env, "Frame object is null").ThrowAsJavaScriptException();
+        return;
+    }
+    if (!value.IsNumber())
+    {
+        Napi::TypeError::New(env, "Number expected").ThrowAsJavaScriptException();
+        return;
+    }
+    frame_->flags = value.As<Napi::Number>().Int32Value();
 }

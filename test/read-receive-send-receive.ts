@@ -3,7 +3,7 @@ import { AVCodecContext, createAVBitstreamFilter, createAVFormatContext, setAVLo
 async function main() {
     setAVLogLevel('trace');
 
-    const bsf = createAVBitstreamFilter('dump_extra');
+    const bsf = createAVBitstreamFilter('h264_mp4toannexb');
 
     using readContext = createAVFormatContext();
     readContext.open("rtsp://scrypted-nvr:54559/0745382c566400e0");
@@ -53,6 +53,8 @@ async function main() {
                 bitrate: 2000000,
                 timeBase: video,
             });
+            encoder.gopSize = 60;
+            encoder.keyIntMin = 60;
 
             writeStream = writeContext.newStream({
                 codecContext: encoder,

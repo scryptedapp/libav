@@ -32,6 +32,10 @@ public:
     enum AVHWDeviceType hw_device_value;
 
 private:
+    Napi::Value GetKeyIntMin(const Napi::CallbackInfo &info);
+    void SetKeyIntMin(const Napi::CallbackInfo &info, const Napi::Value &value);
+    Napi::Value GetGopSize(const Napi::CallbackInfo &info);
+    void SetGopSize(const Napi::CallbackInfo &info, const Napi::Value &value);
     Napi::Value GetTimeBaseNum(const Napi::CallbackInfo &info);
     Napi::Value GetTimeBaseDen(const Napi::CallbackInfo &info);
     Napi::Value GetHardwareDevice(const Napi::CallbackInfo &info);

@@ -23,27 +23,16 @@ Napi::Object AVPacketObject::Init(Napi::Env env, Napi::Object exports)
     Napi::HandleScope scope(env);
 
     Napi::Function func = DefineClass(env, "AVPacketObject", {
-
-                                                                 AVPacketObject::InstanceAccessor("isKeyFrame", &AVPacketObject::GetIsKeyFrame, nullptr),
-
+                                                                 AVPacketObject::InstanceAccessor("flags", &AVPacketObject::GetFlags, &AVPacketObject::SetFlags),
                                                                  AVPacketObject::InstanceAccessor("pts", &AVPacketObject::GetPTS, nullptr),
-
                                                                  AVPacketObject::InstanceAccessor("dts", &AVPacketObject::GetDTS, nullptr),
-
                                                                  AVPacketObject::InstanceAccessor("duration", &AVPacketObject::GetDuration, nullptr),
-
                                                                  AVPacketObject::InstanceAccessor("size", &AVPacketObject::GetSize, nullptr),
-
                                                                  AVPacketObject::InstanceAccessor("streamIndex", &AVPacketObject::GetStreamIndex, nullptr),
-
                                                                  InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVPacketObject::Destroy),
-
                                                                  InstanceMethod("clone", &AVPacketObject::Clone),
-
                                                                  InstanceMethod("destroy", &AVPacketObject::Destroy),
-
                                                                  InstanceMethod("getData", &AVPacketObject::GetData),
-
                                                              });
 
     constructor = Napi::Persistent(func);
@@ -104,11 +93,25 @@ Napi::Value AVPacketObject::Destroy(const Napi::CallbackInfo &info)
 
     return info.Env().Undefined();
 }
-
-Napi::Value AVPacketObject::GetIsKeyFrame(const Napi::CallbackInfo &info)
+Napi::Value AVPacketObject::GetFlags(const Napi::CallbackInfo &info)
 {
-    bool keyFrame = packet ? packet->flags & AV_PKT_FLAG_KEY : false;
-    return Napi::Boolean::New(info.Env(), keyFrame);
+    return Napi::Number::New(info.Env(), packet ? packet->flags : 0);
+}
+
+void AVPacketObject::SetFlags(const Napi::CallbackInfo &info, const Napi::Value &value)
+{
+    if (!packet)
+    {
+        return;
+    }
+
+    if (!value.IsNumber())
+    {
+        Napi::TypeError::New(info.Env(), "Number expected for flags").ThrowAsJavaScriptException();
+        return;
+    }
+
+    packet->flags = value.As<Napi::Number>().Int32Value();
 }
 
 Napi::Value AVPacketObject::GetPTS(const Napi::CallbackInfo &info)

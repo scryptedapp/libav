@@ -27,7 +27,8 @@ public:
     ~AVPacketObject();
     Napi::Value Clone(const Napi::CallbackInfo &info);
     Napi::Value Destroy(const Napi::CallbackInfo &info);
-    Napi::Value GetIsKeyFrame(const Napi::CallbackInfo &info);
+    Napi::Value GetFlags(const Napi::CallbackInfo &info);
+    void SetFlags(const Napi::CallbackInfo &info, const Napi::Value &value);
     Napi::Value GetPTS(const Napi::CallbackInfo &info);
     Napi::Value GetDTS(const Napi::CallbackInfo &info);
     Napi::Value GetDuration(const Napi::CallbackInfo &info);

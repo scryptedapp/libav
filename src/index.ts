@@ -104,6 +104,7 @@ export interface AVFrame extends AVTimeBase {
     readonly hardwareDeviceType: string;
     readonly softwareFormat: string;
 
+    flags: number;
     timeBaseNum: number;
     timeBaseDen: number;
     pts: number;
@@ -142,7 +143,7 @@ export interface AVBitstreamFilter {
 
 export interface AVPacket {
     readonly streamIndex: number;
-    readonly isKeyFrame: boolean;
+    flags: number;
     readonly size: number;
     readonly pts: number;
     readonly dts: number;
@@ -162,6 +163,8 @@ export interface AVCodecContext extends AVTimeBase {
     readonly pixelFormat: string;
     readonly hardwarePixelFormat: string;
     readonly vendorInfo: Record<string, any>;
+    keyIntMin: number;
+    gopSize: number;
 
     [Symbol.dispose](): void;
     destroy(): void;

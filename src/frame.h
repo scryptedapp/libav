@@ -43,6 +43,8 @@ private:
     void SetDTS(const Napi::CallbackInfo &info, const Napi::Value &value);
     Napi::Value GetHardware(const Napi::CallbackInfo &info);
     Napi::Value GetSoftware(const Napi::CallbackInfo &info);
+    Napi::Value GetFlags(const Napi::CallbackInfo &info);
+    void SetFlags(const Napi::CallbackInfo &info, const Napi::Value &value);
 
     Napi::Value Destroy(const Napi::CallbackInfo &info);
     Napi::Value CreateEncoder(const Napi::CallbackInfo &info);
