@@ -200,7 +200,9 @@ export interface AVFormatContext {
     receiveFrame(streamIndex: number, codecContext: AVCodecContext): Promise<AVFrame>;
     create(format: string, callback: (buffer: Buffer) => void): void;
     newStream(options: {
-        codecContext: AVCodecContext,
+        codecContext?: AVCodecContext,
+        formatContext?: AVFormatContext,
+        streamIndex?: number,
     }): number;
     writeFrame(streamIndex: number, packet: AVPacket): void;
     createSDP(): string;

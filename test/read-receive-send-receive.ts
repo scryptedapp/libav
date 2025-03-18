@@ -11,6 +11,7 @@ async function main() {
     using readContext = createAVFormatContext();
     readContext.open("rtsp://scrypted-nvr:54559/0745382c566400e0");
     const video = readContext.streams.find(s => s.type === 'video')!;
+    const audio = readContext.streams.find(s => s.type === 'audio')!;
 
     bsf.copyParameters(readContext, video.index);
 
@@ -45,9 +46,13 @@ async function main() {
     });
     let writeStream: number | undefined;
 
-    console.log(writeContext.createSDP());
-    console.log(createSdp([writeContext]));
-
+    using audioWriteContext = createAVFormatContext();
+    audioWriteContext.create('rtp', (a) => {
+    });
+    const audioWriteStream = audioWriteContext.newStream({
+        formatContext: readContext,
+        streamIndex: readContext.streams.find(s => s.type === 'audio')?.index,
+    })
 
     using decoder = readContext.createDecoder(video.index, 'videotoolbox');
     let encoder: AVCodecContext | undefined;
@@ -56,6 +61,11 @@ async function main() {
         using packet = await readContext.readFrame();
         if (!packet)
             continue;
+
+        if (packet.streamIndex === audio.index) {
+            audioWriteContext.writeFrame(audioWriteStream, packet);
+            continue;
+        }
 
         if (packet.streamIndex !== video.index)
             continue;
@@ -100,6 +110,8 @@ async function main() {
             writeStream = writeContext.newStream({
                 codecContext: encoder,
             });
+
+            console.log(createSdp([writeContext, audioWriteContext]));
         }
 
         // this is necessary to prevent on demand keyframes

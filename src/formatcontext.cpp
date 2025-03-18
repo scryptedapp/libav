@@ -699,29 +699,76 @@ Napi::Value AVFormatContextObject::NewStream(const Napi::CallbackInfo &info)
     Napi::Object options = info[0].As<Napi::Object>();
 
     Napi::Value codecContextValue = options.Get("codecContext");
-    if (!codecContextValue.IsObject())
+    Napi::Value formatContextValue = options.Get("formatContext");
+    Napi::Value streamIndexValue = options.Get("streamIndex");
+    AVStream *stream;
+
+    if (codecContextValue.IsObject())
     {
-        Napi::TypeError::New(env, "Object expected for codecContext").ThrowAsJavaScriptException();
+        AVCodecContextObject *codecContextObject = Napi::ObjectWrap<AVCodecContextObject>::Unwrap(codecContextValue.As<Napi::Object>());
+        AVCodecContext *codecContext = codecContextObject->codecContext;
+    
+        // Create a new stream
+        stream = avformat_new_stream(fmt_ctx_, NULL);
+        if (!stream)
+        {
+            Napi::Error::New(env, "Failed to create new stream").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+    
+        // Set the codec parameters for the new stream
+        AVCodecParameters *codecpar = stream->codecpar;
+        stream->time_base.num = codecContext->time_base.num;
+        stream->time_base.den = codecContext->time_base.den;
+    
+        avcodec_parameters_from_context(codecpar, codecContext);
+    }
+    else if (formatContextValue.IsObject())
+    {
+        if (!streamIndexValue.IsNumber())
+        {
+            Napi::TypeError::New(env, "Number expected for streamIndex").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+        unsigned int streamIndex = streamIndexValue.As<Napi::Number>().Uint32Value();
+        AVFormatContextObject *formatContextObject = Napi::ObjectWrap<AVFormatContextObject>::Unwrap(formatContextValue.As<Napi::Object>());
+        AVFormatContext *formatContext = formatContextObject->fmt_ctx_;
+        if (!formatContext)
+        {
+            Napi::Error::New(env, "Format context is null").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+        if (streamIndex < 0 || streamIndex >= formatContext->nb_streams)
+        {
+            Napi::Error::New(env, "Invalid stream index").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+        AVStream *sourceStream = formatContext->streams[streamIndex];
+        stream = avformat_new_stream(fmt_ctx_, NULL);
+        if (!stream)
+        {
+            Napi::Error::New(env, "Failed to create new stream").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+        AVCodecParameters *codecpar = stream->codecpar;
+        if (avcodec_parameters_copy(codecpar, sourceStream->codecpar) < 0)
+        {
+            Napi::Error::New(env, "Failed to copy codec parameters").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+        stream->time_base.num = sourceStream->time_base.num;
+        stream->time_base.den = sourceStream->time_base.den;
+    }
+    else if (streamIndexValue.IsNumber())
+    {
+        int streamIndex = streamIndexValue.As<Napi::Number>().Int32Value();
+        stream = fmt_ctx_->streams[streamIndex];
+    }
+    else {
+        // throw
+        Napi::Error::New(env, "Object expected for codecContext or formatContext").ThrowAsJavaScriptException();
         return env.Undefined();
     }
-
-    AVCodecContextObject *codecContextObject = Napi::ObjectWrap<AVCodecContextObject>::Unwrap(codecContextValue.As<Napi::Object>());
-    AVCodecContext *codecContext = codecContextObject->codecContext;
-
-    // Create a new stream
-    AVStream *stream = avformat_new_stream(fmt_ctx_, NULL);
-    if (!stream)
-    {
-        Napi::Error::New(env, "Failed to create new stream").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    // Set the codec parameters for the new stream
-    AVCodecParameters *codecpar = stream->codecpar;
-    stream->time_base.num = codecContext->time_base.num;
-    stream->time_base.den = codecContext->time_base.den;
-
-    avcodec_parameters_from_context(codecpar, codecContext);
 
     // gpt says supposed to send this but sends empty packet which crashes.
     // sps/pps seem to be sent correctly though.
