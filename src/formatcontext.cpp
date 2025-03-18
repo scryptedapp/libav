@@ -786,6 +786,35 @@ Napi::Value AVFormatContextObject::CreateSDP(const Napi::CallbackInfo &info)
     return sdpString;
 }
 
+Napi::Value createSDP(const Napi::CallbackInfo &info) {
+    Napi::Env env = info.Env();
+
+    if (info.Length() < 1 || !info[0].IsArray()) {
+        Napi::TypeError::New(env, "Array of AVFormatContext expected for argument 0").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    Napi::Array formatContextArray = info[0].As<Napi::Array>();
+    size_t length = formatContextArray.Length();
+    AVFormatContext *ctx[length];
+
+    for (size_t i = 0; i < length; i++) {
+        Napi::Object formatContextObject = formatContextArray.Get(i).As<Napi::Object>();
+        AVFormatContextObject *avFormatContextObject = Napi::ObjectWrap<AVFormatContextObject>::Unwrap(formatContextObject);
+        ctx[i] = avFormatContextObject->fmt_ctx_;
+    }
+
+    char sdp[65536];
+    int ret = av_sdp_create(ctx, length, sdp, sizeof(sdp));
+    if (ret < 0) {
+        Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    Napi::String sdpString = Napi::String::New(env, sdp);
+    return sdpString;
+}
+
 Napi::Object Init(Napi::Env env, Napi::Object exports)
 {
     av_log_set_level(AV_LOG_QUIET);
@@ -799,6 +828,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
     AVBitstreamFilter::Init(env, exports);
 
     exports.Set(Napi::String::New(env, "setLogLevel"), Napi::Function::New(env, setLogLevel));
+    exports.Set(Napi::String::New(env, "createSdp"), Napi::Function::New(env, createSDP));
     return exports;
 }
 

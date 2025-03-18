@@ -287,6 +287,10 @@ async function encodeJpeg(softwareFrame: AVFrame, quality: number) {
     return transcodePacket.getData();
 }
 
+export function createSdp(formatContexts: AVFormatContext[]) {
+    return loadAddon().createSdp(formatContexts);
+}
+
 export async function toJpeg(frame: AVFrame, quality: number) {
     if (frame.pixelFormat === 'yuvj420p')
         return await encodeJpeg(frame, quality);

@@ -1,4 +1,4 @@
-import { AVCodecContext, AVFilter, createAVBitstreamFilter, createAVFilter, createAVFormatContext, setAVLogLevel } from '../src';
+import { AVCodecContext, AVFilter, createAVBitstreamFilter, createAVFilter, createAVFormatContext, createSdp, setAVLogLevel } from '../src';
 
 async function main() {
     let seenKeyFrame = false;
@@ -6,7 +6,7 @@ async function main() {
 
     let filterGraph: AVFilter | undefined;
 
-    const bsf = createAVBitstreamFilter('h264_mp4toannexb');
+    using bsf = createAVBitstreamFilter('h264_mp4toannexb');
 
     using readContext = createAVFormatContext();
     readContext.open("rtsp://scrypted-nvr:54559/0745382c566400e0");
@@ -44,6 +44,10 @@ async function main() {
         }
     });
     let writeStream: number | undefined;
+
+    console.log(writeContext.createSDP());
+    console.log(createSdp([writeContext]));
+
 
     using decoder = readContext.createDecoder(video.index, 'videotoolbox');
     let encoder: AVCodecContext | undefined;
