@@ -4,7 +4,7 @@ async function main() {
     let seenKeyFrame = false;
     setAVLogLevel('trace');
 
-    let filterGraph: AVFilter|undefined;
+    let filterGraph: AVFilter | undefined;
 
     const bsf = createAVBitstreamFilter('h264_mp4toannexb');
 
@@ -16,8 +16,12 @@ async function main() {
 
     using writeContext = createAVFormatContext();
     let frames = 0;
-    let framesSinceIdr = 0;
+    let framesSinceIdr: number | undefined;
     const start = Date.now();
+
+    let lastIdr = start;
+    const encoderFps = 10;
+
     writeContext.create('rtp', (a) => {
         frames++;
         let naluType = a[12] & 0x1F;
@@ -26,7 +30,7 @@ async function main() {
         }
 
         if (naluType === 5) {
-            if (framesSinceIdr) {
+            if (framesSinceIdr === undefined || framesSinceIdr) {
                 const fps = frames / (Date.now() - start) * 1000;
                 console.log('idr', framesSinceIdr, 'fps', fps)
                 framesSinceIdr = 0;
@@ -35,7 +39,8 @@ async function main() {
         else {
             // this is technically wrong because the rtp packet may be a fragment.
             // works though.
-            framesSinceIdr++;
+            if (typeof framesSinceIdr === 'number')
+                framesSinceIdr++;
         }
     });
     let writeStream: number | undefined;
@@ -65,7 +70,7 @@ async function main() {
 
         if (!filterGraph) {
             filterGraph = createAVFilter({
-                filter: 'fps=10',
+                filter: `fps=${encoderFps}`,
                 frames: [{
                     frame,
                     timeBase: video,
@@ -83,8 +88,9 @@ async function main() {
                 encoder: 'h264_videotoolbox',
                 bitrate: 2000000,
                 timeBase: video,
-                gopSize: 100,
-                keyIntMin: 100,
+                // request 1 minute idr from encoder
+                gopSize: 60 * encoderFps,
+                keyIntMin: 60 * encoderFps,
             });
 
             writeStream = writeContext.newStream({
@@ -98,6 +104,12 @@ async function main() {
             frame.pictType = 2;
         else
             seenKeyFrame ||= frame.pictType === 1;
+
+        // manually send 4 second idr
+        if (Date.now() - lastIdr > 4000) {
+            lastIdr = Date.now();
+            frame.pictType = 1;
+        }
 
         const sent = await encoder.sendFrame(frame);
         if (!sent) {
