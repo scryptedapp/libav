@@ -796,7 +796,12 @@ Napi::Value createSDP(const Napi::CallbackInfo &info) {
 
     Napi::Array formatContextArray = info[0].As<Napi::Array>();
     size_t length = formatContextArray.Length();
-    AVFormatContext *ctx[length];
+    AVFormatContext *ctx[100];
+
+    if (length > 100) {
+        Napi::Error::New(env, "Array length must be less than 100").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
 
     for (size_t i = 0; i < length; i++) {
         Napi::Object formatContextObject = formatContextArray.Get(i).As<Napi::Object>();
