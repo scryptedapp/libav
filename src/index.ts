@@ -103,6 +103,7 @@ export interface AVFrame extends AVTimeBase {
     readonly pixelFormat: string;
     readonly hardwareDeviceType: string;
     readonly softwareFormat: string;
+    pictType: number;
 
     flags: number;
     timeBaseNum: number;
@@ -121,6 +122,8 @@ export interface AVFrame extends AVTimeBase {
         opts?: {
             [key: string]: string | number,
         },
+        gopSize?: number;
+        keyIntMin?: number;
     }): AVCodecContext;
 }
 

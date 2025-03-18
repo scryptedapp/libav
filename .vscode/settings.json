@@ -24,6 +24,7 @@
         "queue": "cpp",
         "stack": "cpp",
         "scale_eval.h": "c",
-        "filters.h": "c"
+        "filters.h": "c",
+        "ratio": "cpp"
     }
 }

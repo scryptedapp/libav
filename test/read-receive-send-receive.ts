@@ -1,7 +1,10 @@
-import { AVCodecContext, createAVBitstreamFilter, createAVFormatContext, setAVLogLevel } from '../src';
+import { AVCodecContext, AVFilter, createAVBitstreamFilter, createAVFilter, createAVFormatContext, setAVLogLevel } from '../src';
 
 async function main() {
+    let seenKeyFrame = false;
     setAVLogLevel('trace');
+
+    let filterGraph: AVFilter|undefined;
 
     const bsf = createAVBitstreamFilter('h264_mp4toannexb');
 
@@ -12,14 +15,27 @@ async function main() {
     bsf.copyParameters(readContext, video.index);
 
     using writeContext = createAVFormatContext();
+    let frames = 0;
+    let framesSinceIdr = 0;
+    const start = Date.now();
     writeContext.create('rtp', (a) => {
-        const naluType = a[12] & 0x1F;
+        frames++;
+        let naluType = a[12] & 0x1F;
         if (naluType === 28) {
-            const fuaNaluType = a[13] & 0x1F;
-            console.log('nalu fua', fuaNaluType);
+            naluType = a[13] & 0x1F;
+        }
+
+        if (naluType === 5) {
+            if (framesSinceIdr) {
+                const fps = frames / (Date.now() - start) * 1000;
+                console.log('idr', framesSinceIdr, 'fps', fps)
+                framesSinceIdr = 0;
+            }
         }
         else {
-            console.log('nalu', naluType);
+            // this is technically wrong because the rtp packet may be a fragment.
+            // works though.
+            framesSinceIdr++;
         }
     });
     let writeStream: number | undefined;
@@ -47,19 +63,41 @@ async function main() {
         if (!frame)
             continue;
 
+        if (!filterGraph) {
+            filterGraph = createAVFilter({
+                filter: 'fps=10',
+                frames: [{
+                    frame,
+                    timeBase: video,
+                }],
+            });
+        }
+
+        filterGraph.addFrame(frame);
+        using filtered = filterGraph.getFrame();
+        if (!filtered)
+            continue;
+
         if (!encoder) {
             encoder = frame.createEncoder({
                 encoder: 'h264_videotoolbox',
                 bitrate: 2000000,
                 timeBase: video,
+                gopSize: 100,
+                keyIntMin: 100,
             });
-            encoder.gopSize = 60;
-            encoder.keyIntMin = 60;
 
             writeStream = writeContext.newStream({
                 codecContext: encoder,
             });
         }
+
+        // this is necessary to prevent on demand keyframes
+        // and use the gop size specified above.
+        if (seenKeyFrame)
+            frame.pictType = 2;
+        else
+            seenKeyFrame ||= frame.pictType === 1;
 
         const sent = await encoder.sendFrame(frame);
         if (!sent) {

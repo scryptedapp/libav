@@ -48,6 +48,8 @@ Napi::Object AVFrameObject::Init(Napi::Env env, Napi::Object exports)
 
                                                                 AVFrameObject::InstanceAccessor("flags", &AVFrameObject::GetFlags, &AVFrameObject::SetFlags),
 
+                                                                AVFrameObject::InstanceAccessor("pictType", &AVFrameObject::GetPictType, &AVFrameObject::SetPictType),
+
                                                                 InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVFrameObject::Destroy),
 
                                                                 InstanceMethod("destroy", &AVFrameObject::Destroy),
@@ -228,6 +230,17 @@ Napi::Value AVFrameObject::CreateEncoder(const Napi::CallbackInfo &info)
     c->pix_fmt = (enum AVPixelFormat)frame_->format;
     c->time_base.num = timeBaseNum;
     c->time_base.den = timeBaseDen;
+
+    Napi::Value gopSizeValue = options.Get("gopSize");
+    if (gopSizeValue.IsNumber()) {
+        c->gop_size = gopSizeValue.As<Napi::Number>().Int32Value();
+    }
+
+    Napi::Value keyintMinValue = options.Get("keyIntMin");
+    if (keyintMinValue.IsNumber()) {
+        c->keyint_min = keyintMinValue.As<Napi::Number>().Int32Value();
+    }
+
 
     Napi::Value opts = options.Get("opts");
     if (opts.IsObject())
@@ -571,4 +584,30 @@ void AVFrameObject::SetFlags(const Napi::CallbackInfo &info, const Napi::Value &
         return;
     }
     frame_->flags = value.As<Napi::Number>().Int32Value();
+}
+
+Napi::Value AVFrameObject::GetPictType(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+    if (!frame_)
+    {
+        return env.Undefined();
+    }
+    return Napi::Number::New(env, frame_->pict_type);
+}
+
+void AVFrameObject::SetPictType(const Napi::CallbackInfo &info, const Napi::Value &value)
+{
+    Napi::Env env = info.Env();
+    if (!frame_)
+    {
+        Napi::Error::New(env, "Frame object is null").ThrowAsJavaScriptException();
+        return;
+    }
+    if (!value.IsNumber())
+    {
+        Napi::TypeError::New(env, "Number expected").ThrowAsJavaScriptException();
+        return;
+    }
+    frame_->pict_type = (enum AVPictureType)value.As<Napi::Number>().Int32Value();
 }
