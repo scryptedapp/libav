@@ -26,6 +26,7 @@ extern "C"
 #include "filter.h"
 #include "codeccontext.h"
 #include "packet.h"
+#include "bsf.h"
 
 static Napi::FunctionReference logCallbackRef;
 
@@ -818,6 +819,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
     AVFrameObject::Init(env, exports);
     AVCodecContextObject::Init(env, exports);
     AVFormatContextObject::Init(env, exports);
+    AVBitstreamFilter::Init(env, exports);
 
     exports.Set(Napi::String::New(env, "setLogLevel"), Napi::Function::New(env, setLogLevel));
     return exports;

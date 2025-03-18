@@ -1,9 +1,12 @@
-import { AVCodecContext, createAVFormatContext, setAVLogLevel } from '../src';
+import { AVCodecContext, createAVBitstreamFilter, createAVFormatContext, setAVLogLevel } from '../src';
 
 async function main() {
     setAVLogLevel('trace');
+
+    const bsf = createAVBitstreamFilter('h264_mp4toannexb');
+
     using readContext = createAVFormatContext();
-    readContext.open("rtsp://scrypted-nvr:50757/68c1f365ed3e15b4");
+    readContext.open("rtsp://scrypted-nvr:54559/0745382c566400e0");
     const video = readContext.streams.find(s => s.type === 'video')!;
 
     using writeContext = createAVFormatContext();
@@ -66,7 +69,14 @@ async function main() {
             continue;
         }
 
-        writeContext.writeFrame(writeStream!, transcodePacket);
+        bsf.sendPacket(transcodePacket);
+        while (true) {
+            using filtered = bsf.receivePacket();
+            if (!filtered)
+                break
+
+            writeContext.writeFrame(writeStream!, filtered);
+        }
     }
 }
 

@@ -131,6 +131,14 @@ export interface AVFilter {
     getFrame(index?: number): AVFrame;
 }
 
+export interface AVBitstreamFilter {
+    [Symbol.dispose](): void;
+    destroy(): void;
+    setOption(name: string, value: string): void;
+    sendPacket(packet: AVPacket): void;
+    receivePacket(): AVPacket;
+}
+
 export interface AVPacket {
     readonly streamIndex: number;
     readonly isKeyFrame: boolean;
@@ -222,6 +230,10 @@ export function createAVFrame(
     fillBlack = true,
 ): AVFrame {
     return new (loadAddon().AVFrame)(width, height, pixelFormat, fillBlack);
+}
+
+export function createAVBitstreamFilter(filter: string): AVBitstreamFilter {
+    return new (loadAddon().AVBitstreamFilter)(filter);
 }
 
 export function getBinaryUrl() {

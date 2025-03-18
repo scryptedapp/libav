@@ -3,6 +3,7 @@
         {
             "target_name": "addon",
             "sources": [
+                "src/bsf.cpp",
                 "src/formatcontext.cpp",
                 "src/codeccontext.cpp",
                 "src/packet.cpp",
