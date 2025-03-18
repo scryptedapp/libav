@@ -6,6 +6,7 @@ import { IncomingMessage } from 'http';
 import path from 'path';
 import { x as tarx } from 'tar';
 import packageJson from '../package.json';
+export * from './flags';
 
 let addon: any;
 
