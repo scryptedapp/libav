@@ -24,8 +24,8 @@ Napi::Object AVPacketObject::Init(Napi::Env env, Napi::Object exports)
 
     Napi::Function func = DefineClass(env, "AVPacketObject", {
                                                                  AVPacketObject::InstanceAccessor("flags", &AVPacketObject::GetFlags, &AVPacketObject::SetFlags),
-                                                                 AVPacketObject::InstanceAccessor("pts", &AVPacketObject::GetPTS, nullptr),
-                                                                 AVPacketObject::InstanceAccessor("dts", &AVPacketObject::GetDTS, nullptr),
+                                                                 AVPacketObject::InstanceAccessor("pts", &AVPacketObject::GetPTS, &AVPacketObject::SetPTS),
+                                                                 AVPacketObject::InstanceAccessor("dts", &AVPacketObject::GetDTS, &AVPacketObject::SetDTS),
                                                                  AVPacketObject::InstanceAccessor("duration", &AVPacketObject::GetDuration, nullptr),
                                                                  AVPacketObject::InstanceAccessor("size", &AVPacketObject::GetSize, nullptr),
                                                                  AVPacketObject::InstanceAccessor("streamIndex", &AVPacketObject::GetStreamIndex, nullptr),
@@ -119,11 +119,42 @@ Napi::Value AVPacketObject::GetPTS(const Napi::CallbackInfo &info)
     return Napi::Number::New(info.Env(), packet ? packet->pts : 0);
 }
 
+void AVPacketObject::SetPTS(const Napi::CallbackInfo &info, const Napi::Value &value)
+{
+    if (!packet)
+    {
+        return;
+    }
+
+    if (!value.IsNumber())
+    {
+        Napi::TypeError::New(info.Env(), "Number expected for pts").ThrowAsJavaScriptException();
+        return;
+    }
+
+    packet->pts = value.As<Napi::Number>().Int64Value();
+}
+
 Napi::Value AVPacketObject::GetDTS(const Napi::CallbackInfo &info)
 {
     return Napi::Number::New(info.Env(), packet ? packet->dts : 0);
 }
 
+void AVPacketObject::SetDTS(const Napi::CallbackInfo &info, const Napi::Value &value)
+{
+    if (!packet)
+    {
+        return;
+    }
+
+    if (!value.IsNumber())
+    {
+        Napi::TypeError::New(info.Env(), "Number expected for dts").ThrowAsJavaScriptException();
+        return;
+    }
+
+    packet->dts = value.As<Napi::Number>().Int64Value();
+}
 Napi::Value AVPacketObject::GetDuration(const Napi::CallbackInfo &info)
 {
     return Napi::Number::New(info.Env(), packet ? packet->duration : 0);

@@ -149,8 +149,8 @@ export interface AVPacket {
     readonly streamIndex: number;
     flags: number;
     readonly size: number;
-    readonly pts: number;
-    readonly dts: number;
+    pts: number;
+    dts: number;
     readonly duration: number;
 
     [Symbol.dispose](): void;

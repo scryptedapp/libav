@@ -30,7 +30,9 @@ public:
     Napi::Value GetFlags(const Napi::CallbackInfo &info);
     void SetFlags(const Napi::CallbackInfo &info, const Napi::Value &value);
     Napi::Value GetPTS(const Napi::CallbackInfo &info);
+    void SetPTS(const Napi::CallbackInfo &info, const Napi::Value &value);
     Napi::Value GetDTS(const Napi::CallbackInfo &info);
+    void SetDTS(const Napi::CallbackInfo &info, const Napi::Value &value);
     Napi::Value GetDuration(const Napi::CallbackInfo &info);
     Napi::Value GetSize(const Napi::CallbackInfo &info);
     Napi::Value GetData(const Napi::CallbackInfo &info);
