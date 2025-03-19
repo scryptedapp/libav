@@ -167,6 +167,7 @@ public:
     ReceivePacketWorker(napi_env env, napi_deferred deferred, AVCodecContext *codecContext)
         : Napi::AsyncWorker(env), deferred(deferred), codecContext(codecContext)
     {
+        result = nullptr;
     }
 
     void Execute() override
