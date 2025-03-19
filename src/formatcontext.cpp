@@ -196,9 +196,9 @@ public:
 
                 if (packet->stream_index != streamIndex)
                 {
-                    // wrong stream, keep looking
-                    av_packet_unref(packet);
-                    continue;
+                    // wrong stream, return the packet
+                    packetResult = packet;
+                    return;
                 }
 
                 ret = avcodec_send_packet(codecContext, packet);
