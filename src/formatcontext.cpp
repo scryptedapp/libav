@@ -599,6 +599,7 @@ Napi::Value AVFormatContextObject::Create(const Napi::CallbackInfo &info)
     if (formatName == "rtp")
     {
         int MAX_RTP_PACKET_SIZE = 65536;
+        fmt_ctx_->packet_size = MAX_RTP_PACKET_SIZE;
         RTPMuxContext *rtp_ctx = (RTPMuxContext *)fmt_ctx_->priv_data;
         rtp_ctx->max_payload_size = MAX_RTP_PACKET_SIZE - 12;
         rtp_ctx->buf = (uint8_t *)av_malloc(MAX_RTP_PACKET_SIZE);
@@ -770,17 +771,14 @@ Napi::Value AVFormatContextObject::NewStream(const Napi::CallbackInfo &info)
         return env.Undefined();
     }
 
-    // gpt says supposed to send this but sends empty packet which crashes.
-    // sps/pps seem to be sent correctly though.
-    // may be an issue on mp4 where there's a moov header?
-    // int ret;
-    // if ((ret = avformat_write_header(fmt_ctx_, NULL)) < 0)
-    // {
-    //     avformat_free_context(fmt_ctx_);
-    //     fmt_ctx_ = nullptr;
-    //     Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();
-    //     return env.Undefined();
-    // }
+    int ret;
+    if ((ret = avformat_write_header(fmt_ctx_, NULL)) < 0)
+    {
+        avformat_free_context(fmt_ctx_);
+        fmt_ctx_ = nullptr;
+        Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
 
     return Napi::Number::New(env, stream->index);
 }
