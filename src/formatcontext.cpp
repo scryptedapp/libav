@@ -671,7 +671,7 @@ Napi::Value AVFormatContextObject::WriteFrame(const Napi::CallbackInfo &info)
 
     if (!packet)
     {
-        Napi::Error::New(env, "Packet is null").ThrowAsJavaScriptException();
+        Napi::Error::New(env, "WriteFrame received null frame").ThrowAsJavaScriptException();
         return env.Undefined();
     }
 

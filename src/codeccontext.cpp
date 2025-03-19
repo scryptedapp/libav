@@ -105,11 +105,12 @@ public:
     ReceiveFrameWorker(napi_env env, napi_deferred deferred, AVCodecContext *codecContext)
         : Napi::AsyncWorker(env), deferred(deferred), codecContext(codecContext)
     {
-        result = nullptr;
     }
 
     void Execute() override
     {
+        result = nullptr;
+
         AVFrame *frame = av_frame_alloc();
         if (!frame)
         {
@@ -167,11 +168,12 @@ public:
     ReceivePacketWorker(napi_env env, napi_deferred deferred, AVCodecContext *codecContext)
         : Napi::AsyncWorker(env), deferred(deferred), codecContext(codecContext)
     {
-        result = nullptr;
     }
 
     void Execute() override
     {
+        result = nullptr;
+
         AVPacket *packet = av_packet_alloc();
         if (!packet)
         {
@@ -265,9 +267,11 @@ public:
 
     void Execute() override
     {
+        result = false;
+
         if (!frame)
         {
-            SetError("Packet is null");
+            SetError("SendFrame received null frame");
             return;
         }
         if (!codecContext)
@@ -283,8 +287,6 @@ public:
             result = true;
             return;
         }
-
-        result = false;
 
         if (ret != AVERROR(EAGAIN))
         {
@@ -326,9 +328,11 @@ public:
 
     void Execute() override
     {
+        result = false;
+
         if (!packet)
         {
-            SetError("Packet is null");
+            SetError("SendPacket received null packet");
             return;
         }
 
@@ -339,8 +343,6 @@ public:
             result = true;
             return;
         }
-
-        result = false;
 
         if (ret != AVERROR(EAGAIN))
         {
