@@ -225,6 +225,15 @@ Napi::Value AVFrameObject::CreateEncoder(const Napi::CallbackInfo &info)
     }
 
     c->bit_rate = bitrate.As<Napi::Number>().Int32Value();
+    Napi::Value maxRateValue = options.Get("maxRate");
+    if (maxRateValue.IsNumber())
+    {
+        c->rc_max_rate = maxRateValue.As<Napi::Number>().Int32Value();
+    }
+    else {
+        c->rc_max_rate = c->bit_rate;
+    }
+
     c->width = frame_->width;
     c->height = frame_->height;
     c->pix_fmt = (enum AVPixelFormat)frame_->format;
