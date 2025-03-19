@@ -25,6 +25,7 @@
         "stack": "cpp",
         "scale_eval.h": "c",
         "filters.h": "c",
-        "ratio": "cpp"
+        "ratio": "cpp",
+        "unordered_map": "cpp"
     }
 }

@@ -1,4 +1,4 @@
-import { AVCodecContext, AVFilter, createAVBitstreamFilter, createAVFilter, createAVFormatContext, createSdp, setAVLogLevel } from '../src';
+import { AVCodecContext, AVFilter, AVFrame, AVPacket, createAVBitstreamFilter, createAVFilter, createAVFormatContext, createSdp, setAVLogLevel } from '../src';
 
 async function main() {
     let seenKeyFrame = false;
@@ -58,29 +58,19 @@ async function main() {
     let encoder: AVCodecContext | undefined;
 
     while (true) {
-        using packet = await readContext.readFrame();
-        if (!packet)
+        using frameOrPacket = await readContext.receiveFrame(video.index, decoder);
+        if (!frameOrPacket)
             continue;
 
-        if (packet.streamIndex === audio.index) {
-            audioWriteContext.writeFrame(audioWriteStream, packet);
+        const packet = frameOrPacket as AVPacket;
+        if (packet.streamIndex !== undefined) {
+
+            if (packet.streamIndex === audio.index)
+                audioWriteContext.writeFrame(audioWriteStream, packet);
             continue;
         }
 
-        if (packet.streamIndex !== video.index)
-            continue;
-
-        try {
-            await decoder.sendPacket(packet);
-        }
-        catch (e) {
-            console.error('sendPacket error (recoverable)', e);
-            continue;
-        }
-
-        using frame = await decoder.receiveFrame();
-        if (!frame)
-            continue;
+        const frame = frameOrPacket as AVFrame;
 
         if (!filterGraph) {
             filterGraph = createAVFilter({
