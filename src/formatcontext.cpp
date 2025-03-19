@@ -525,6 +525,9 @@ Napi::Value AVFormatContextObject::Close(const Napi::CallbackInfo &info)
         if (is_input) {
             avformat_close_input(&fmt_ctx_);
         }
+        if (callbackRef) {
+            callbackRef.Release();
+        }
         avformat_free_context(fmt_ctx_);
         fmt_ctx_ = nullptr;
     }
