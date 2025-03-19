@@ -230,6 +230,7 @@ Napi::Value AVFrameObject::CreateEncoder(const Napi::CallbackInfo &info)
     c->pix_fmt = (enum AVPixelFormat)frame_->format;
     c->time_base.num = timeBaseNum;
     c->time_base.den = timeBaseDen;
+    c->max_b_frames = 0;
 
     Napi::Value gopSizeValue = options.Get("gopSize");
     if (gopSizeValue.IsNumber()) {
