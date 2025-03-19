@@ -42,4 +42,6 @@ private:
     Napi::Value WriteFrame(const Napi::CallbackInfo &info);
     Napi::Value GetStreams(const Napi::CallbackInfo &info);
     Napi::Value CreateSDP(const Napi::CallbackInfo &info);
+
+    bool is_input;
 };

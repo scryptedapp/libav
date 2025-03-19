@@ -307,7 +307,7 @@ Napi::Object AVFormatContextObject::Init(Napi::Env env, Napi::Object exports)
 
 AVFormatContextObject::AVFormatContextObject(const Napi::CallbackInfo &info)
     : Napi::ObjectWrap<AVFormatContextObject>(info),
-      fmt_ctx_(nullptr)
+      fmt_ctx_(nullptr), is_input(false)
 {
     // i don't think this constructor is called from js??
 }
@@ -376,6 +376,7 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
         return env.Undefined();
     }
 
+    is_input = true;
     return env.Undefined();
 }
 
@@ -521,7 +522,9 @@ Napi::Value AVFormatContextObject::Close(const Napi::CallbackInfo &info)
 {
     if (fmt_ctx_)
     {
-        avformat_close_input(&fmt_ctx_);
+        if (is_input) {
+            avformat_close_input(&fmt_ctx_);
+        }
         avformat_free_context(fmt_ctx_);
         fmt_ctx_ = nullptr;
     }
