@@ -289,7 +289,7 @@ async function encodeJpeg(softwareFrame: AVFrame, quality: number) {
     return transcodePacket.getData();
 }
 
-export function createSdp(formatContexts: AVFormatContext[]) {
+export function createSdp(formatContexts: AVFormatContext[]): string {
     return loadAddon().createSdp(formatContexts);
 }
 
