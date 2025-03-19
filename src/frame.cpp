@@ -232,6 +232,13 @@ Napi::Value AVFrameObject::CreateEncoder(const Napi::CallbackInfo &info)
     c->time_base.den = timeBaseDen;
     c->max_b_frames = 0;
 
+    Napi::Value profileValue = options.Get("profile");
+    // if number, set it
+    if (profileValue.IsNumber())
+    {
+        c->profile = profileValue.As<Napi::Number>().Int32Value();
+    }
+
     Napi::Value gopSizeValue = options.Get("gopSize");
     if (gopSizeValue.IsNumber()) {
         c->gop_size = gopSizeValue.As<Napi::Number>().Int32Value();

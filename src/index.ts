@@ -123,6 +123,7 @@ export interface AVFrame extends AVTimeBase {
         opts?: {
             [key: string]: string | number,
         },
+        profile?: number;
         gopSize?: number;
         keyIntMin?: number;
     }): AVCodecContext;
@@ -275,7 +276,7 @@ async function encodeJpeg(softwareFrame: AVFrame, quality: number) {
             quality,
             qmin: quality,
             qmax: quality,
-        }
+        },
     });
 
     const sent = await encoder.sendFrame(softwareFrame);
