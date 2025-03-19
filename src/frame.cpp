@@ -234,6 +234,15 @@ Napi::Value AVFrameObject::CreateEncoder(const Napi::CallbackInfo &info)
         c->rc_max_rate = c->bit_rate;
     }
 
+    Napi::Value bufSizeValue = options.Get("bufSize");
+    if (bufSizeValue.IsNumber())
+    {
+        c->rc_buffer_size = bufSizeValue.As<Napi::Number>().Int32Value();
+    }
+    else {
+        c->rc_buffer_size = c->bit_rate * 2;
+    }
+
     c->width = frame_->width;
     c->height = frame_->height;
     c->pix_fmt = (enum AVPixelFormat)frame_->format;

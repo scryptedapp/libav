@@ -121,6 +121,7 @@ export interface AVFrame extends AVTimeBase {
         encoder: string,
         bitrate: number,
         maxRate?: number,
+        bufSize?: number,
         timeBase: AVTimeBase,
         opts?: {
             [key: string]: string | number,
