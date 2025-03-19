@@ -738,7 +738,7 @@ Napi::Value AVFormatContextObject::NewStream(const Napi::CallbackInfo &info)
             Napi::Error::New(env, "Format context is null").ThrowAsJavaScriptException();
             return env.Undefined();
         }
-        if (streamIndex < 0 || streamIndex >= formatContext->nb_streams)
+        if (streamIndex >= formatContext->nb_streams)
         {
             Napi::Error::New(env, "Invalid stream index").ThrowAsJavaScriptException();
             return env.Undefined();
