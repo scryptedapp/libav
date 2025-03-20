@@ -248,6 +248,7 @@ Napi::Value AVFrameObject::CreateEncoder(const Napi::CallbackInfo &info)
     c->pix_fmt = (enum AVPixelFormat)frame_->format;
     c->time_base.num = timeBaseNum;
     c->time_base.den = timeBaseDen;
+    c->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
     // set framerate if it exists
     Napi::Value framerateValue = options.Get("framerate");
