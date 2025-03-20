@@ -22,6 +22,15 @@ async function main() {
     const encoderFps = 10;
 
     writeContext.create('rtp', (a) => {
+        // // get sequence number from the Buffer object a
+        // const seq = a.readUInt16BE(2);
+        // const nalu = a[12] & 0x1F;
+        // const payloadType = a[1] & 0x7F;
+        // // rtcp
+        // if (payloadType !== 96)
+        //     return;
+        // console.log('seq', seq, 'nalu', nalu, 'payloadType', payloadType);
+
         frames++;
         let naluType = a[12] & 0x1F;
         if (naluType === 28) {

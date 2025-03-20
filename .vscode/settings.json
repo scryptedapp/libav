@@ -26,6 +26,7 @@
         "scale_eval.h": "c",
         "filters.h": "c",
         "ratio": "cpp",
-        "unordered_map": "cpp"
+        "unordered_map": "cpp",
+        "__bit_reference": "cpp"
     }
 }

@@ -556,12 +556,20 @@ Napi::Value AVFormatContextObject::GetMetadata(const Napi::CallbackInfo &info)
 static int write_packet(void *opaque, const uint8_t *buf, int buf_size)
 {
     AVFormatContextObject *formatContextObject = (AVFormatContextObject *)opaque;
-    // fprintf(stderr, "write_packet called with size: %d\n", buf_size);
+
+    // malloc and copy buf
+    uint8_t *copy = (uint8_t *)av_malloc(buf_size);
+    if (!copy)
+    {
+        return AVERROR(ENOMEM);
+    }
+    memcpy(copy, buf, buf_size);
 
     // Call the JavaScript function on the main thread
-    formatContextObject->callbackRef.BlockingCall([buf, buf_size](Napi::Env env, Napi::Function jsCallback)
+    formatContextObject->callbackRef.BlockingCall([copy, buf_size](Napi::Env env, Napi::Function jsCallback)
                                                   {
-                                                      Napi::Buffer<uint8_t> buffer = Napi::Buffer<uint8_t>::Copy(env, buf, buf_size);
+                                                      Napi::Buffer<uint8_t> buffer = Napi::Buffer<uint8_t>::Copy(env, copy, buf_size);
+                                                      av_free(copy);
                                                       jsCallback.Call({buffer});
                                                       //
                                                   });
