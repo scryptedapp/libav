@@ -604,7 +604,7 @@ Napi::Value AVFormatContextObject::Create(const Napi::CallbackInfo &info)
     // RTP doesn't initialize properly?
     if (formatName == "rtp")
     {
-        int MAX_RTP_PACKET_SIZE = 65536;
+        int MAX_RTP_PACKET_SIZE = 64000;
         fmt_ctx_->packet_size = MAX_RTP_PACKET_SIZE;
         RTPMuxContext *rtp_ctx = (RTPMuxContext *)fmt_ctx_->priv_data;
         rtp_ctx->max_payload_size = MAX_RTP_PACKET_SIZE - 12;
