@@ -91,7 +91,8 @@ async function main() {
             encoder = frame.createEncoder({
                 encoder: 'h264_videotoolbox',
                 bitrate: 2000000,
-                timeBase: video,
+                timeBase: { timeBaseNum: 1, timeBaseDen: encoderFps },
+                framerate: { timeBaseNum: encoderFps, timeBaseDen: 1 },
                 // request 1 minute idr from encoder
                 gopSize: 60 * encoderFps,
                 keyIntMin: 60 * encoderFps,
