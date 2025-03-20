@@ -6,6 +6,7 @@ import { IncomingMessage } from 'http';
 import path from 'path';
 import { x as tarx } from 'tar';
 import packageJson from '../package.json';
+import { AVPictureType } from './flags';
 export * from './flags';
 export * as Profile from './profiles';
 
@@ -105,7 +106,7 @@ export interface AVFrame extends AVTimeBase {
     readonly pixelFormat: string;
     readonly hardwareDeviceType: string;
     readonly softwareFormat: string;
-    pictType: number;
+    pictType: AVPictureType;
 
     flags: number;
     timeBaseNum: number;
