@@ -257,7 +257,8 @@ Napi::Value AVFrameObject::CreateEncoder(const Napi::CallbackInfo &info)
         if (framerateObject.Has("timeBaseNum") && framerateObject.Get("timeBaseNum").IsNumber() &&
             framerateObject.Has("timeBaseDen") && framerateObject.Get("timeBaseDen").IsNumber())
         {
-            c->framerate = (AVRational){framerateObject.Get("timeBaseNum").As<Napi::Number>().Int32Value(), framerateObject.Get("timeBaseDen").As<Napi::Number>().Int32Value()};
+            c->framerate.num = framerateObject.Get("timeBaseNum").As<Napi::Number>().Int32Value();
+            c->framerate.den = framerateObject.Get("timeBaseDen").As<Napi::Number>().Int32Value();
         }
     }
 
