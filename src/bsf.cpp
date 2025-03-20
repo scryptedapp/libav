@@ -201,5 +201,13 @@ Napi::Value AVBitstreamFilter::CopyParameters(const Napi::CallbackInfo &info)
         Napi::Error::New(info.Env(), AVErrorString(ret)).ThrowAsJavaScriptException();
         return info.Env().Undefined();
     }
+
+    ret = av_bsf_init(bsfContext);
+    if (ret < 0)
+    {
+        Napi::Error::New(info.Env(), AVErrorString(ret)).ThrowAsJavaScriptException();
+        return info.Env().Undefined();
+    }
+
     return info.Env().Undefined();
 }

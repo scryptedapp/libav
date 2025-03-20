@@ -13,8 +13,6 @@ async function main() {
     const video = readContext.streams.find(s => s.type === 'video')!;
     const audio = readContext.streams.find(s => s.type === 'audio')!;
 
-    bsf.copyParameters(readContext, video.index);
-
     using writeContext = createAVFormatContext();
     let frames = 0;
     let framesSinceIdr: number | undefined;
@@ -101,6 +99,8 @@ async function main() {
             writeStream = writeContext.newStream({
                 codecContext: encoder,
             });
+
+            bsf.copyParameters(writeContext, writeStream);
 
             console.log(createSdp([writeContext, audioWriteContext]));
         }
