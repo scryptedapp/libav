@@ -248,6 +248,20 @@ Napi::Value AVFrameObject::CreateEncoder(const Napi::CallbackInfo &info)
     c->pix_fmt = (enum AVPixelFormat)frame_->format;
     c->time_base.num = timeBaseNum;
     c->time_base.den = timeBaseDen;
+
+    // set framerate if it exists
+    Napi::Value framerateValue = options.Get("framerate");
+    if (framerateValue.IsObject())
+    {
+        Napi::Object framerateObject = framerateValue.As<Napi::Object>();
+        if (framerateObject.Has("timeBaseNum") && framerateObject.Get("timeBaseNum").IsNumber() &&
+            framerateObject.Has("timeBaseDen") && framerateObject.Get("timeBaseDen").IsNumber())
+        {
+            c->framerate.num = framerateObject.Get("num").As<Napi::Number>().Int32Value();
+            c->framerate.den = framerateObject.Get("den").As<Napi::Number>().Int32Value();
+        }
+    }
+
     c->max_b_frames = 0;
 
     Napi::Value profileValue = options.Get("profile");

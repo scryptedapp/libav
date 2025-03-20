@@ -123,6 +123,7 @@ export interface AVFrame extends AVTimeBase {
         maxRate?: number,
         bufSize?: number,
         timeBase: AVTimeBase,
+        framerate?: AVTimeBase,
         opts?: {
             [key: string]: string | number,
         },
