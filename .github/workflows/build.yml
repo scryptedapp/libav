@@ -40,10 +40,13 @@ jobs:
       if: ${{ matrix.os == 'macos-13' }}
       uses: Homebrew/actions/setup-homebrew@master
 
-    # yasm can be dropped
-    - name: Install yasm and nasm
+    - name: Install nasm
       if: ${{ matrix.os == 'macos-13' }}
-      run: brew install yasm nasm
+      run: brew install nasm
+
+    - name: Install opus
+      if: ${{ matrix.os == 'macos-latest' || matrix.os == 'macos-13' }}
+      run: brew install opus libopusenc
 
     - name: Set up Python
       uses: actions/setup-python@v2
