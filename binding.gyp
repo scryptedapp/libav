@@ -82,7 +82,9 @@
                             "<(module_root_dir)/FFmpeg/libavutil/libavutil.a",
                             "<(module_root_dir)/FFmpeg/libswscale/libswscale.a",
                             "<(module_root_dir)/FFmpeg/libswresample/libswresample.a",
+
                             "<(module_root_dir)/_vplinstall/lib/vpl.lib",
+                            "<(module_root_dir)/_opusinstall/lib/opus.lib",
 
                             # vulkan
                             "glslang.lib",
