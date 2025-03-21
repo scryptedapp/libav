@@ -13,8 +13,7 @@ function check_ffmpeg() {
 }
 
 sudo apt -y update
-# yasm can be dropped
-sudo apt -y install libva-dev libdrm-dev yasm nasm cmake ocl-icd-opencl-dev
+sudo apt -y install libva-dev libdrm-dev nasm cmake ocl-icd-opencl-dev libopus-dev
 
 ARCH=$(arch)
 if [ "$ARCH" = "x86_64" ]
@@ -40,7 +39,7 @@ then
 else
     check_ffmpeg
 
-    ./configure --enable-vaapi --enable-opencl
+    ./configure --enable-libopus --enable-vaapi --enable-opencl
 fi
 
 if [ "$?" != "0" ]
