@@ -7,3 +7,6 @@
 [submodule "libvpl"]
 	path = libvpl
 	url = https://github.com/intel/libvpl.git
+[submodule "opus"]
+	path = opus
+	url = https://github.com/xiph/opus.git

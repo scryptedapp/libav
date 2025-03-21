@@ -9,6 +9,12 @@ cmake -B _build -DCMAKE_INSTALL_PREFIX=$VPL_INSTALL_DIR -DBUILD_SHARED_LIBS=OFF 
 cmake --build _build --config Release
 cmake --install _build --config Release
 
+cd ../opus
+export OPUS_INSTALL_DIR=$PWD/../_opusinstall
+cmake -B _build -DCMAKE_INSTALL_PREFIX=$OPUS_INSTALL_DIR -DBUILD_SHARED_LIBS=OFF -DUSE_MSVC_STATIC_RUNTIME=ON -DMINGW_LIBS="-ladvapi32 -lmsvcrt -lole32"
+cmake --build _build --config Release
+cmake --install _build --config Release
+
 cd ../FFmpeg
 
 if [ ! -z "$FFMPEG_NO_REBUILD" ]
@@ -22,7 +28,7 @@ fi
 
 # yasm can be dropped
 pacman --noconfirm -S yasm nasm pkg-config clang diffutils make
-export PKG_CONFIG_PATH=$PWD/../_vplinstall/lib/pkgconfig:$PWD/../_nvinstall/lib/pkgconfig:$PWD/../src/pkgconfig:$PKG_CONFIG_PATH
+export PKG_CONFIG_PATH=$PWD/../_opusinstall/lib/pkgconfig:$PWD/../_vplinstall/lib/pkgconfig:$PWD/../_nvinstall/lib/pkgconfig:$PWD/../src/pkgconfig
 
 # the --enable-nvdec is necessary for build sanity checking, the build will configure
 # successfully if nvidia stuff is missing, even though it is required for --enable-cuda-llvm
@@ -31,5 +37,5 @@ export PKG_CONFIG_PATH=$PWD/../_vplinstall/lib/pkgconfig:$PWD/../_nvinstall/lib/
 # this version is the last that has HLSL and OGLCompiler which are still required by ffmpeg for now
 # https://sdk.lunarg.com/sdk/download/1.3.268.0/windows/VulkanSDK-1.3.268.0-Installer.exe
 
-./configure --enable-libvpl --enable-libglslang --enable-cuda-llvm --enable-nvdec --toolchain=msvc && make -j32
+./configure --enable-libopus --enable-libvpl --enable-libglslang --enable-cuda-llvm --enable-nvdec --toolchain=msvc && make -j32
 exit $?
