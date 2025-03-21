@@ -9,7 +9,7 @@ async function main() {
     using bsf = createAVBitstreamFilter('h264_mp4toannexb');
 
     using readContext = createAVFormatContext();
-    readContext.open("rtsp://scrypted-nvr:54559/0745382c566400e0");
+    readContext.open("rtsp://scrypted-nvr:53043/c3fadcb6b9a1d9b0");
     const video = readContext.streams.find(s => s.type === 'video')!;
     const audio = readContext.streams.find(s => s.type === 'audio')!;
 
@@ -21,20 +21,23 @@ async function main() {
     let lastIdr = start;
     const encoderFps = 10;
 
-    writeContext.create('rtp', (a) => {
-        // // get sequence number from the Buffer object a
-        // const seq = a.readUInt16BE(2);
-        // const nalu = a[12] & 0x1F;
-        // const payloadType = a[1] & 0x7F;
-        // // rtcp
-        // if (payloadType !== 96)
-        //     return;
-        // console.log('seq', seq, 'nalu', nalu, 'payloadType', payloadType);
+    let lastReport = Date.now();
+    let sinceLastReport = 0;
+    
+    writeContext.create('rtp', rtp => {
+        sinceLastReport += rtp.length;
+        if (Date.now() - lastReport > 4000) {
+            // compute bitrate
+            const bitrate = sinceLastReport * 8 / 4;
+            console.log('bitrate', bitrate);
+            lastReport = Date.now();
+            sinceLastReport = 0;
+        }
 
         frames++;
-        let naluType = a[12] & 0x1F;
+        let naluType = rtp[12] & 0x1F;
         if (naluType === 28) {
-            naluType = a[13] & 0x1F;
+            naluType = rtp[13] & 0x1F;
         }
 
         if (naluType === 5) {
@@ -97,7 +100,9 @@ async function main() {
         if (!encoder) {
             encoder = frame.createEncoder({
                 encoder: 'h264_videotoolbox',
-                bitrate: 2000000,
+                bitrate: 1000000,
+                minRate: 10000,
+                maxRate: 2000000,
                 timeBase: { timeBaseNum: 1, timeBaseDen: encoderFps },
                 framerate: { timeBaseNum: encoderFps, timeBaseDen: 1 },
                 // request 1 minute idr from encoder
@@ -122,10 +127,10 @@ async function main() {
             seenKeyFrame ||= frame.pictType === 1;
 
         // manually send 4 second idr
-        if (Date.now() - lastIdr > 4000) {
-            lastIdr = Date.now();
-            frame.pictType = 1;
-        }
+        // if (Date.now() - lastIdr > 4000) {
+        //     lastIdr = Date.now();
+        //     frame.pictType = 1;
+        // }
 
         const sent = await encoder.sendFrame(frame);
         if (!sent) {

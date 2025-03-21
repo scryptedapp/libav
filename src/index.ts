@@ -121,6 +121,7 @@ export interface AVFrame extends AVTimeBase {
     createEncoder(options: {
         encoder: string,
         bitrate: number,
+        minRate?: number;
         maxRate?: number,
         bufSize?: number,
         timeBase: AVTimeBase,
