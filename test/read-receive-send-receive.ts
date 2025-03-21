@@ -84,7 +84,7 @@ async function main() {
 
         if (!filterGraph) {
             filterGraph = createAVFilter({
-                filter: `fps=${encoderFps}`,
+                filter: `fps=${encoderFps},setpts=N*(${video.timeBaseDen} / ${encoderFps})`,
                 frames: [{
                     frame,
                     timeBase: video,
