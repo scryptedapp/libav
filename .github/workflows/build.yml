@@ -42,11 +42,7 @@ jobs:
 
     - name: Install nasm
       if: ${{ matrix.os == 'macos-13' }}
-      run: brew install nasm
-
-    - name: Install opus
-      if: ${{ matrix.os == 'macos-latest' || matrix.os == 'macos-13' }}
-      run: brew install opus libopusenc
+      run: brew install nasm cmake
 
     - name: Set up Python
       uses: actions/setup-python@v2

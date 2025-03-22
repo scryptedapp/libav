@@ -1,5 +1,17 @@
+cd $(dirname $0)
+
 DEBIAN_FRONTEND=noninteractive
-cd $(dirname $0)/../FFmpeg
+
+sudo apt -y update
+# yasm can be dropped
+sudo apt -y install libva-dev libdrm-dev yasm nasm cmake ocl-icd-opencl-dev
+
+cd ../opus
+export OPUS_INSTALL_DIR=$PWD/../_opusinstall
+cmake -B _build -DCMAKE_INSTALL_PREFIX=$OPUS_INSTALL_DIR -DBUILD_SHARED_LIBS=OFF
+cmake --build _build --config Release
+cmake --install _build --config Release
+export PKG_CONFIG_PATH=$PWD/../_opusinstall/lib/pkgconfig:$PKG_CONFIG_PATH
 
 function check_ffmpeg() {
   if [ ! -z "$FFMPEG_NO_REBUILD" ]
@@ -12,9 +24,7 @@ function check_ffmpeg() {
   fi
 }
 
-sudo apt -y update
-# yasm can be dropped
-sudo apt -y install libva-dev libdrm-dev yasm nasm cmake ocl-icd-opencl-dev
+cd ../FFmpeg
 
 ARCH=$(arch)
 if [ "$ARCH" = "x86_64" ]
@@ -36,11 +46,11 @@ then
 
     echo "Building with NVIDIA GPU and Vulkan support"
     export PATH=/usr/local/cuda-12.4/bin:$PATH
-    ./configure --enable-libvpl --enable-vaapi --enable-opencl --enable-libglslang --enable-cuda-llvm --enable-nvdec --extra-cflags=-I/usr/local/cuda/include --extra-ldflags=-L/usr/local/cuda/lib64
+    ./configure --enable-libopus --enable-libvpl --enable-vaapi --enable-opencl --enable-libglslang --enable-cuda-llvm --enable-nvdec --extra-cflags=-I/usr/local/cuda/include --extra-ldflags=-L/usr/local/cuda/lib64
 else
     check_ffmpeg
 
-    ./configure --enable-vaapi --enable-opencl
+    ./configure --enable-libopus --enable-vaapi --enable-opencl
 fi
 
 if [ "$?" != "0" ]

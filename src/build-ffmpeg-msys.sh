@@ -11,7 +11,7 @@ cmake --install _build --config Release
 
 cd ../opus
 export OPUS_INSTALL_DIR=$PWD/../_opusinstall
-cmake -B _build -DCMAKE_INSTALL_PREFIX=$OPUS_INSTALL_DIR -DBUILD_SHARED_LIBS=OFF -DUSE_MSVC_STATIC_RUNTIME=ON -DMINGW_LIBS="-ladvapi32 -lmsvcrt -lole32"
+cmake -B _build -DCMAKE_INSTALL_PREFIX=$OPUS_INSTALL_DIR -DBUILD_SHARED_LIBS=OFF
 cmake --build _build --config Release
 cmake --install _build --config Release
 

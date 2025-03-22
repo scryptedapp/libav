@@ -7,3 +7,10 @@ libvpl
 nv-codec-headers
 prebuilds
 opus
+_opusinstall
+tsconfig.json
+src
+.vscode
+darwin.md
+_vplinstall
+_nvinstall
