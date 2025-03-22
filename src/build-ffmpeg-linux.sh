@@ -11,6 +11,8 @@ export OPUS_INSTALL_DIR=$PWD/../_opusinstall
 cmake -B _build -DCMAKE_INSTALL_PREFIX=$OPUS_INSTALL_DIR -DBUILD_SHARED_LIBS=OFF
 cmake --build _build --config Release
 cmake --install _build --config Release
+# hack to make ffmpeg configure opus properly due to missing libm
+sed -i '/^Libs:/ s/$/ -lm/' ../_opusinstall/lib/pkgconfig/opus.pc
 export PKG_CONFIG_PATH=$PWD/../_opusinstall/lib/pkgconfig:$PKG_CONFIG_PATH
 
 function check_ffmpeg() {
