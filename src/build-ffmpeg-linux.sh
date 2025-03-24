@@ -2,10 +2,6 @@ cd $(dirname $0)
 
 DEBIAN_FRONTEND=noninteractive
 
-sudo apt -y update
-# yasm can be dropped
-sudo apt -y install libva-dev libdrm-dev yasm nasm cmake ocl-icd-opencl-dev
-
 cd ../opus
 export OPUS_INSTALL_DIR=$PWD/../_opusinstall
 cmake -B _build -DCMAKE_INSTALL_PREFIX=$OPUS_INSTALL_DIR -DBUILD_SHARED_LIBS=OFF

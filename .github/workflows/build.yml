@@ -40,7 +40,11 @@ jobs:
       if: ${{ matrix.os == 'macos-13' }}
       uses: Homebrew/actions/setup-homebrew@master
 
-    - name: Install nasm
+    - name: Install Linux dependencies
+      if: ${{ matrix.os == 'self-hosted-x86_64' || matrix.os == 'self-hosted-arm64' }}
+      run: apt -y update && apt -y install libva-dev libdrm-dev yasm nasm cmake ocl-icd-opencl-dev
+
+    - name: Install macOS dependencies
       if: ${{ matrix.os == 'macos-13' }}
       run: brew install nasm cmake
 
