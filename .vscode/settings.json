@@ -27,6 +27,7 @@
         "filters.h": "c",
         "ratio": "cpp",
         "unordered_map": "cpp",
-        "__bit_reference": "cpp"
+        "__bit_reference": "cpp",
+        "initializer_list": "cpp"
     }
 }

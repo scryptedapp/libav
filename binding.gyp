@@ -10,6 +10,7 @@
                 "src/frame.cpp",
                 "src/error.cpp",
                 "src/filter.cpp",
+                "src/openworker.cpp",
             ],
             "xcode_settings": {
                 "MACOSX_DEPLOYMENT_TARGET": "12.0",

@@ -367,17 +367,19 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
         return env.Undefined();
     }
 
-    AVDictionary *options = nullptr;
-    std::string filename = info[0].As<Napi::String>().Utf8Value();
-    int ret = avformat_open_input(&fmt_ctx_, filename.c_str(), NULL, &options);
-    if (ret < 0)
-    {
-        Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
+    // Create a new promise and get its deferred handle
+    napi_deferred deferred;
+    napi_value promise;
+    napi_create_promise(env, &deferred, &promise);
 
-    is_input = true;
-    return env.Undefined();
+    std::string filename = info[0].As<Napi::String>().Utf8Value();
+
+    // Create and queue the AsyncWorker, passing the deferred handle
+    OpenWorker *worker = new OpenWorker(env, deferred, this, filename);
+    worker->Queue();
+
+    // Return the promise to JavaScript
+    return Napi::Value(env, promise);
 }
 
 Napi::Value AVFormatContextObject::CreateDecoder(const Napi::CallbackInfo &info)

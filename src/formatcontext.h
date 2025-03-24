@@ -20,8 +20,11 @@ extern "C"
 #endif
 }
 
+#include "openworker.h"
+
 class AVFormatContextObject : public Napi::ObjectWrap<AVFormatContextObject>
 {
+    friend class OpenWorker;
 public:
     static Napi::Object Init(Napi::Env env, Napi::Object exports);
     AVFormatContextObject(const Napi::CallbackInfo &info);

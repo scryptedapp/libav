@@ -9,7 +9,7 @@ async function main() {
     using bsf = createAVBitstreamFilter('h264_mp4toannexb');
 
     using readContext = createAVFormatContext();
-    readContext.open("rtsp://scrypted-nvr:53043/c3fadcb6b9a1d9b0");
+    await readContext.open("rtsp://scrypted-nvr:53043/c3fadcb6b9a1d9b0");
     const video = readContext.streams.find(s => s.type === 'video')!;
     const audio = readContext.streams.find(s => s.type === 'audio')!;
 
@@ -67,7 +67,8 @@ async function main() {
     using decoder = readContext.createDecoder(video.index, 'videotoolbox');
     let encoder: AVCodecContext | undefined;
 
-    while (true) {
+    let framesEncoded = 0;
+    while (framesEncoded < 50) {
         using frameOrPacket = await readContext.receiveFrame(video.index, decoder);
         if (!frameOrPacket)
             continue;
@@ -151,8 +152,12 @@ async function main() {
                 break
 
             writeContext.writeFrame(writeStream!, filtered);
+            framesEncoded++;
         }
     }
+
+    await new Promise(r => setTimeout(r, 1000));
+    encoder?.destroy();
 }
 
 main();

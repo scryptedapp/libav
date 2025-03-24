@@ -202,7 +202,7 @@ export interface AVFormatContext {
     readonly streams: AVStream[];
 
     [Symbol.dispose](): void;
-    open(input: string): void;
+    open(input: string): Promise<void>;
     createDecoder(streamIndex: number, hardwareDevice?: string, decoder?: string, deviceName?: string): AVCodecContext;
     readFrame(): Promise<AVPacket>;
     receiveFrame(streamIndex: number, codecContext: AVCodecContext): Promise<AVFrame|AVPacket>;
