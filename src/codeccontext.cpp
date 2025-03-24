@@ -23,6 +23,10 @@ extern "C"
 #include "error.h"
 #include "codeccontext.h"
 #include "frame.h"
+#include "receive-frame-worker.h"
+#include "receive-packet-worker.h"
+#include "send-frame-worker.h"
+#include "send-packet-worker.h"
 
 Napi::FunctionReference AVCodecContextObject::constructor;
 
@@ -99,131 +103,6 @@ Napi::Object AVCodecContextObject::NewInstance(Napi::Env env)
     return obj;
 }
 
-class ReceiveFrameWorker : public Napi::AsyncWorker
-{
-public:
-    ReceiveFrameWorker(napi_env env, napi_deferred deferred, AVCodecContext *codecContext)
-        : Napi::AsyncWorker(env), deferred(deferred), codecContext(codecContext)
-    {
-    }
-
-    void Execute() override
-    {
-        result = nullptr;
-
-        AVFrame *frame = av_frame_alloc();
-        if (!frame)
-        {
-            SetError("Failed to allocate frame");
-            return;
-        }
-
-        //  EAGAIN will be returned if packets need to be sent to decoder.
-        int ret = avcodec_receive_frame(codecContext, frame);
-        if (!ret)
-        {
-            result = frame;
-            return;
-        }
-
-        av_frame_free(&frame);
-        if (ret != AVERROR(EAGAIN))
-        {
-            SetError(AVErrorString(ret));
-        }
-    }
-
-    // This method runs in the main thread after Execute completes successfully
-    void OnOK() override
-    {
-        Napi::Env env = Env();
-        if (!result)
-        {
-            napi_resolve_deferred(Env(), deferred, env.Undefined());
-        }
-        else
-        {
-            napi_resolve_deferred(Env(), deferred, AVFrameObject::NewInstance(env, result));
-        }
-    }
-
-    // This method runs in the main thread if Execute fails
-    void OnError(const Napi::Error &e) override
-    {
-        napi_value error = e.Value();
-
-        // Reject the promise
-        napi_reject_deferred(Env(), deferred, error);
-    }
-
-private:
-    AVFrame *result;
-    napi_deferred deferred;
-    AVCodecContext *codecContext;
-};
-
-class ReceivePacketWorker : public Napi::AsyncWorker
-{
-public:
-    ReceivePacketWorker(napi_env env, napi_deferred deferred, AVCodecContext *codecContext)
-        : Napi::AsyncWorker(env), deferred(deferred), codecContext(codecContext)
-    {
-    }
-
-    void Execute() override
-    {
-        result = nullptr;
-
-        AVPacket *packet = av_packet_alloc();
-        if (!packet)
-        {
-            SetError("Failed to allocate packet");
-            return;
-        }
-
-        // EAGAIN will be returned if frames needs to be sent to encoder
-        int ret = avcodec_receive_packet(codecContext, packet);
-        if (!ret)
-        {
-            result = packet;
-            return;
-        }
-
-        av_packet_free(&packet);
-        if (ret != AVERROR(EAGAIN))
-        {
-            SetError(AVErrorString(ret));
-        }
-    }
-
-    // This method runs in the main thread after Execute completes successfully
-    void OnOK() override
-    {
-        Napi::Env env = Env();
-        if (!result)
-        {
-            napi_resolve_deferred(Env(), deferred, env.Undefined());
-        }
-        else
-        {
-            napi_resolve_deferred(Env(), deferred, AVPacketObject::NewInstance(env, result));
-        }
-    }
-
-    // This method runs in the main thread if Execute fails
-    void OnError(const Napi::Error &e) override
-    {
-        napi_value error = e.Value();
-
-        // Reject the promise
-        napi_reject_deferred(Env(), deferred, error);
-    }
-
-private:
-    AVPacket *result;
-    napi_deferred deferred;
-    AVCodecContext *codecContext;
-};
 
 Napi::Value AVCodecContextObject::ReceiveFrame(const Napi::CallbackInfo &info)
 {
@@ -234,7 +113,7 @@ Napi::Value AVCodecContextObject::ReceiveFrame(const Napi::CallbackInfo &info)
     napi_create_promise(env, &deferred, &promise);
 
     // Create and queue the AsyncWorker, passing the deferred handle
-    ReceiveFrameWorker *worker = new ReceiveFrameWorker(env, deferred, codecContext);
+    ReceiveFrameWorker *worker = new ReceiveFrameWorker(env, deferred, this);
     worker->Queue();
 
     // Return the promise to JavaScript
@@ -257,125 +136,6 @@ Napi::Value AVCodecContextObject::ReceivePacket(const Napi::CallbackInfo &info)
     return Napi::Value(env, promise);
 }
 
-class SendFrameWorker : public Napi::AsyncWorker
-{
-public:
-    SendFrameWorker(napi_env env, napi_deferred deferred, AVCodecContext *codecContext, AVFrame *frame)
-        : Napi::AsyncWorker(env), deferred(deferred), codecContext(codecContext), frame(frame)
-    {
-    }
-
-    void Execute() override
-    {
-        result = false;
-
-        if (!frame)
-        {
-            SetError("SendFrame received null frame");
-            return;
-        }
-        if (!codecContext)
-        {
-            SetError("Codec Context is null");
-            return;
-        }
-
-        int ret = avcodec_send_frame(codecContext, frame);
-
-        if (!ret)
-        {
-            result = true;
-            return;
-        }
-
-        if (ret != AVERROR(EAGAIN))
-        {
-            // what would cause this?
-            SetError(AVErrorString(ret));
-        }
-    }
-
-    // This method runs in the main thread after Execute completes successfully
-    void OnOK() override
-    {
-        Napi::Env env = Env();
-        napi_resolve_deferred(env, deferred, Napi::Boolean::New(env, result));
-    }
-
-    // This method runs in the main thread if Execute fails
-    void OnError(const Napi::Error &e) override
-    {
-        napi_value error = e.Value();
-
-        // Reject the promise
-        napi_reject_deferred(Env(), deferred, error);
-    }
-
-private:
-    bool result;
-    napi_deferred deferred;
-    AVCodecContext *codecContext;
-    AVFrame *frame;
-};
-
-class SendPacketWorker : public Napi::AsyncWorker
-{
-public:
-    SendPacketWorker(napi_env env, napi_deferred deferred, AVCodecContext *codecContext, AVPacket *packet)
-        : Napi::AsyncWorker(env), deferred(deferred), codecContext(codecContext), packet(packet)
-    {
-    }
-
-    void Execute() override
-    {
-        result = false;
-
-        if (!packet)
-        {
-            SetError("SendPacket received null packet");
-            return;
-        }
-
-        int ret = avcodec_send_packet(codecContext, packet);
-
-        if (!ret)
-        {
-            result = true;
-            return;
-        }
-
-        if (ret != AVERROR(EAGAIN))
-        {
-            // errors are typically caused by missing codec info
-            // or invalid packets, and may resolve on a later packet.
-            // suppress all errors until a keyframe is sent.
-            SetError(AVErrorString(ret));
-        }
-    }
-
-    // This method runs in the main thread after Execute completes successfully
-    void OnOK() override
-    {
-        Napi::Env env = Env();
-        napi_resolve_deferred(env, deferred, Napi::Boolean::New(env, result));
-    }
-
-    // This method runs in the main thread if Execute fails
-    void OnError(const Napi::Error &e) override
-    {
-        napi_value error = e.Value();
-
-        // Reject the promise
-        napi_reject_deferred(Env(), deferred, error);
-    }
-
-private:
-    bool result;
-    napi_deferred deferred;
-    AVCodecContext *codecContext;
-    AVPacket *packet;
-};
-
 Napi::Value AVCodecContextObject::SendPacket(const Napi::CallbackInfo &info)
 {
     if (!info.Length())
@@ -393,7 +153,7 @@ Napi::Value AVCodecContextObject::SendPacket(const Napi::CallbackInfo &info)
     napi_create_promise(env, &deferred, &promise);
 
     // Create and queue the AsyncWorker, passing the deferred handle
-    SendPacketWorker *worker = new SendPacketWorker(env, deferred, codecContext, packet->packet);
+    SendPacketWorker *worker = new SendPacketWorker(env, deferred, this, packet);
     worker->Queue();
 
     // Return the promise to JavaScript
@@ -417,7 +177,7 @@ Napi::Value AVCodecContextObject::SendFrame(const Napi::CallbackInfo &info)
     napi_create_promise(env, &deferred, &promise);
 
     // Create and queue the AsyncWorker, passing the deferred handle
-    SendFrameWorker *worker = new SendFrameWorker(env, deferred, codecContext, frame->frame_);
+    SendFrameWorker *worker = new SendFrameWorker(env, deferred, this, frame);
     worker->Queue();
 
     // Return the promise to JavaScript

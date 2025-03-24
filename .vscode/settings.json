@@ -28,6 +28,7 @@
         "ratio": "cpp",
         "unordered_map": "cpp",
         "__bit_reference": "cpp",
-        "initializer_list": "cpp"
+        "initializer_list": "cpp",
+        "new": "cpp"
     }
 }
