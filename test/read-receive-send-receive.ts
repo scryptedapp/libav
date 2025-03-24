@@ -23,7 +23,7 @@ async function main() {
 
     let lastReport = Date.now();
     let sinceLastReport = 0;
-    
+
     writeContext.create('rtp', rtp => {
         sinceLastReport += rtp.length;
         if (Date.now() - lastReport > 4000) {
@@ -109,6 +109,10 @@ async function main() {
                 // request 1 minute idr from encoder
                 gopSize: 60 * encoderFps,
                 keyIntMin: 60 * encoderFps,
+                opts: {
+                    // needed by cuda and maybe others?
+                    'forced-idr': 1,
+                }
             });
 
             writeStream = writeContext.newStream({
