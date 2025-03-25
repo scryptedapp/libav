@@ -50,6 +50,8 @@ Napi::Object AVFrameObject::Init(Napi::Env env, Napi::Object exports)
 
                                                                 AVFrameObject::InstanceAccessor("pictType", &AVFrameObject::GetPictType, &AVFrameObject::SetPictType),
 
+                                                                AVFrameObject::InstanceAccessor("format", &AVFrameObject::GetFormat, &AVFrameObject::SetFormat),
+
                                                                 InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVFrameObject::Destroy),
 
                                                                 InstanceMethod("destroy", &AVFrameObject::Destroy),
@@ -685,4 +687,30 @@ void AVFrameObject::SetPictType(const Napi::CallbackInfo &info, const Napi::Valu
         return;
     }
     frame_->pict_type = (enum AVPictureType)value.As<Napi::Number>().Int32Value();
+}
+
+Napi::Value AVFrameObject::GetFormat(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+    if (!frame_)
+    {
+        return env.Undefined();
+    }
+    return Napi::Number::New(env, frame_->format);
+}
+
+void AVFrameObject::SetFormat(const Napi::CallbackInfo &info, const Napi::Value &value)
+{
+    Napi::Env env = info.Env();
+    if (!frame_)
+    {
+        Napi::Error::New(env, "Frame object is null").ThrowAsJavaScriptException();
+        return;
+    }
+    if (!value.IsNumber())
+    {
+        Napi::TypeError::New(env, "Number expected").ThrowAsJavaScriptException();
+        return;
+    }
+    frame_->format = value.As<Napi::Number>().Int32Value();
 }

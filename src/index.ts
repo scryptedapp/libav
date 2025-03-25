@@ -113,6 +113,7 @@ export interface AVFrame extends AVTimeBase {
     timeBaseDen: number;
     pts: number;
     dts: number;
+    format: number;
 
     [Symbol.dispose](): void;
     destroy(): void;
