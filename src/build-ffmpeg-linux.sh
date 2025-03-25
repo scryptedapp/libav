@@ -4,7 +4,7 @@ DEBIAN_FRONTEND=noninteractive
 
 cd ../opus
 export OPUS_INSTALL_DIR=$PWD/../_opusinstall
-cmake -B _build -DCMAKE_INSTALL_PREFIX=$OPUS_INSTALL_DIR -DBUILD_SHARED_LIBS=OFF
+cmake -B _build -DCMAKE_INSTALL_PREFIX=$OPUS_INSTALL_DIR -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON
 cmake --build _build --config Release
 cmake --install _build --config Release
 # hack to make ffmpeg configure opus properly due to missing libm

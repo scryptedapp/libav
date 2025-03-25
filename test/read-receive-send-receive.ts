@@ -10,7 +10,7 @@ async function main() {
     using bsf = createAVBitstreamFilter('h264_mp4toannexb');
 
     await using readContext = createAVFormatContext();
-    await readContext.open("rtsp://scrypted-nvr:53043/c3fadcb6b9a1d9b0");
+    await readContext.open("rtsp://192.168.2.130:53043/c3fadcb6b9a1d9b0");
     const video = readContext.streams.find(s => s.type === 'video')!;
     const audio = readContext.streams.find(s => s.type === 'audio')!;
 
@@ -63,7 +63,10 @@ async function main() {
     });
     let audioWriteStream: number|undefined;
 
-    using videoDecoder = readContext.createDecoder(video.index, 'videotoolbox');
+    const hwaccel = process.platform === 'darwin' ? 'videotoolbox' : 'cuda';
+    const videoEncoderCodec = process.platform === 'darwin' ? 'h264_videotoolbox' : 'h264_nvenc';
+
+    using videoDecoder = readContext.createDecoder(video.index, hwaccel);
     using audioDecoder = readContext.createDecoder(audio.index);
     let videoEncoder: AVCodecContext | undefined;
     let audioEncoder: AVCodecContext | undefined;
@@ -154,7 +157,7 @@ async function main() {
 
         if (!videoEncoder) {
             videoEncoder = frame.createEncoder({
-                encoder: 'h264_videotoolbox',
+                encoder: videoEncoderCodec,
                 bitrate: 1000000,
                 minRate: 10000,
                 maxRate: 2000000,

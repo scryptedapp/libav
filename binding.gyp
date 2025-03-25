@@ -181,6 +181,7 @@
                             "<(module_root_dir)/FFmpeg/libavutil/libavutil.a",
                             "<(module_root_dir)/FFmpeg/libswscale/libswscale.a",
                             "<(module_root_dir)/FFmpeg/libswresample/libswresample.a",
+                            "<(module_root_dir)/_opusinstall/lib/libopus.a",
                             "-ldrm",
                             "-lva",
                             "-lva-drm",
