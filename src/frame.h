@@ -49,6 +49,8 @@ private:
     void SetPictType(const Napi::CallbackInfo &info, const Napi::Value &value);
     Napi::Value GetFormat(const Napi::CallbackInfo &info);
     void SetFormat(const Napi::CallbackInfo &info, const Napi::Value &value);
+    Napi::Value GetSampleCount(const Napi::CallbackInfo &info);
+    void SetSampleCount(const Napi::CallbackInfo &info, const Napi::Value &value);
 
     Napi::Value Destroy(const Napi::CallbackInfo &info);
     Napi::Value CreateEncoder(const Napi::CallbackInfo &info);

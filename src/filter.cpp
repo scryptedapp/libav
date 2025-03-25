@@ -63,6 +63,13 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
         return;
     }
 
+    bool autoConvert = false;
+    Napi::Value autoConvertValue = options.Get("autoConvert");
+    if (autoConvertValue.IsBoolean())
+    {
+        autoConvert = autoConvertValue.As<Napi::Boolean>().Value();
+    }
+
     std::string hardwareDevice;
     Napi::Value hardwareDeviceValue = options.Get("hardwareDevice");
     if (hardwareDeviceValue.IsString())
@@ -206,7 +213,8 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
     struct AVFilterGraph *filter_graph = avfilter_graph_alloc();
     if (threadCount > 0)
         filter_graph->nb_threads = threadCount;
-    avfilter_graph_set_auto_convert(filter_graph, AVFILTER_AUTO_CONVERT_NONE);
+    if (!autoConvert)
+        avfilter_graph_set_auto_convert(filter_graph, AVFILTER_AUTO_CONVERT_NONE);
     if (!filter_graph)
     {
         Napi::Error::New(env, "filter graph creation failed").ThrowAsJavaScriptException();

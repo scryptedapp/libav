@@ -37,5 +37,5 @@ export PKG_CONFIG_PATH=$PWD/../_opusinstall/lib/pkgconfig:$PWD/../_vplinstall/li
 # this version is the last that has HLSL and OGLCompiler which are still required by ffmpeg for now
 # https://sdk.lunarg.com/sdk/download/1.3.268.0/windows/VulkanSDK-1.3.268.0-Installer.exe
 
-./configure --enable-libopus --enable-libvpl --enable-libglslang --enable-cuda-llvm --enable-nvdec --toolchain=msvc && make -j32
+./configure --enable-libopus --enable-encoder=libopus --enable-decoder=libopus --enable-libvpl --enable-libglslang --enable-cuda-llvm --enable-nvdec --toolchain=msvc && make -j32
 exit $?

@@ -52,6 +52,8 @@ Napi::Object AVFrameObject::Init(Napi::Env env, Napi::Object exports)
 
                                                                 AVFrameObject::InstanceAccessor("format", &AVFrameObject::GetFormat, &AVFrameObject::SetFormat),
 
+                                                                AVFrameObject::InstanceAccessor("sampleCount", &AVFrameObject::GetSampleCount, &AVFrameObject::SetSampleCount),
+
                                                                 InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVFrameObject::Destroy),
 
                                                                 InstanceMethod("destroy", &AVFrameObject::Destroy),
@@ -711,4 +713,30 @@ void AVFrameObject::SetFormat(const Napi::CallbackInfo &info, const Napi::Value 
         return;
     }
     frame_->format = value.As<Napi::Number>().Int32Value();
+}
+
+Napi::Value AVFrameObject::GetSampleCount(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+    if (!frame_)
+    {
+        return env.Undefined();
+    }
+    return Napi::Number::New(env, frame_->nb_samples);
+}
+
+void AVFrameObject::SetSampleCount(const Napi::CallbackInfo &info, const Napi::Value &value)
+{
+    Napi::Env env = info.Env();
+    if (!frame_)
+    {
+        Napi::Error::New(env, "Frame object is null").ThrowAsJavaScriptException();
+        return;
+    }
+    if (!value.IsNumber())
+    {
+        Napi::TypeError::New(env, "Number expected").ThrowAsJavaScriptException();
+        return;
+    }
+    frame_->nb_samples = value.As<Napi::Number>().Int32Value();
 }

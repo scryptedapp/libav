@@ -87,7 +87,8 @@ async function main() {
 
                 if (!audioFilterGraph) {
                     audioFilterGraph = createAVFilter({
-                        filter: `aresample,aformat=s16`,
+                        filter: `aresample=48000,aformat=s16`,
+                        autoConvert: true,
                         frames: [{
                             frame: audioFrame,
                             timeBase: audio,
