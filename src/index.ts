@@ -203,7 +203,9 @@ export interface AVFormatContext {
     readonly metadata: any;
     readonly streams: AVStream[];
 
-    [Symbol.dispose](): void;
+    // dispose is async here because the format context may be using a network input
+    // like RTSP which may require issuing and waiting for a TEARDOWN
+    [Symbol.asyncDispose](): Promise<void>;
     open(input: string): Promise<void>;
     createDecoder(streamIndex: number, hardwareDevice?: string, decoder?: string, deviceName?: string): AVCodecContext;
     readFrame(): Promise<AVPacket>;
@@ -216,7 +218,7 @@ export interface AVFormatContext {
     }): number;
     writeFrame(streamIndex: number, packet: AVPacket): void;
     createSDP(): string;
-    close(): void;
+    close(): Promise<void>;
 }
 
 export function setAVLogLevel(level: 'quiet' | 'panic' | 'fatal' | 'error' | 'warning' | 'info' | 'verbose' | 'debug' | 'trace') {

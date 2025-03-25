@@ -9,12 +9,12 @@ async function main() {
 
     using bsf = createAVBitstreamFilter('h264_mp4toannexb');
 
-    using readContext = createAVFormatContext();
+    await using readContext = createAVFormatContext();
     await readContext.open("rtsp://scrypted-nvr:53043/c3fadcb6b9a1d9b0");
     const video = readContext.streams.find(s => s.type === 'video')!;
     const audio = readContext.streams.find(s => s.type === 'audio')!;
 
-    using writeContext = createAVFormatContext();
+    await using writeContext = createAVFormatContext();
     let frames = 0;
     let framesSinceIdr: number | undefined;
     const start = Date.now();
@@ -57,7 +57,7 @@ async function main() {
     });
     let writeStream: number | undefined;
 
-    using audioWriteContext = createAVFormatContext();
+    await using audioWriteContext = createAVFormatContext();
     audioWriteContext.create('rtp', (a) => {
         // console.log('audio', a.length);
     });

@@ -34,6 +34,7 @@ public:
     static Napi::FunctionReference constructor;
     AVFormatContext *fmt_ctx_;
     Napi::ThreadSafeFunction callbackRef;
+    bool is_input;
 
 private:
     Napi::Value Open(const Napi::CallbackInfo &info);
@@ -47,6 +48,4 @@ private:
     Napi::Value WriteFrame(const Napi::CallbackInfo &info);
     Napi::Value GetStreams(const Napi::CallbackInfo &info);
     Napi::Value CreateSDP(const Napi::CallbackInfo &info);
-
-    bool is_input;
 };

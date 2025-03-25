@@ -29,6 +29,7 @@ extern "C"
 #include "packet.h"
 #include "bsf.h"
 #include "read-frame-worker.h"
+#include "close-worker.h"
 
 static Napi::FunctionReference logCallbackRef;
 
@@ -130,7 +131,7 @@ Napi::Object AVFormatContextObject::Init(Napi::Env env, Napi::Object exports)
 
                                                                   AVFormatContextObject::InstanceAccessor("streams", &AVFormatContextObject::GetStreams, nullptr),
 
-                                                                  InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVFormatContextObject::Close),
+                                                                  InstanceMethod(Napi::Symbol::WellKnown(env, "asyncDispose"), &AVFormatContextObject::Close),
 
                                                                   InstanceMethod("open", &AVFormatContextObject::Open),
 
@@ -375,19 +376,19 @@ AVFormatContextObject::~AVFormatContextObject()
 
 Napi::Value AVFormatContextObject::Close(const Napi::CallbackInfo &info)
 {
-    if (fmt_ctx_)
-    {
-        if (is_input) {
-            avformat_close_input(&fmt_ctx_);
-        }
-        if (callbackRef) {
-            callbackRef.Release();
-        }
-        avformat_free_context(fmt_ctx_);
-        fmt_ctx_ = nullptr;
-    }
+    Napi::Env env = info.Env();
 
-    return info.Env().Undefined();
+    // Create a new promise and get its deferred handle
+    napi_deferred deferred;
+    napi_value promise;
+    napi_create_promise(env, &deferred, &promise);
+
+    // Create and queue the AsyncWorker, passing the deferred handle
+    CloseWorker *worker = new CloseWorker(env, deferred, this);
+    worker->Queue();
+
+    // Return the promise to JavaScript
+    return Napi::Value(env, promise);
 }
 
 Napi::Value AVFormatContextObject::GetMetadata(const Napi::CallbackInfo &info)

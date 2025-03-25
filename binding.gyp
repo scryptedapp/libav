@@ -16,6 +16,7 @@
                 "src/send-frame-worker.cpp",
                 "src/receive-packet-worker.cpp",
                 "src/send-packet-worker.cpp",
+                "src/close-worker.cpp",
             ],
             "xcode_settings": {
                 "MACOSX_DEPLOYMENT_TARGET": "12.0",
