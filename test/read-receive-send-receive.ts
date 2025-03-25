@@ -59,10 +59,7 @@ async function main() {
     using audioWriteContext = createAVFormatContext();
     audioWriteContext.create('rtp', (a) => {
     });
-    const audioWriteStream = audioWriteContext.newStream({
-        formatContext: readContext,
-        streamIndex: readContext.streams.find(s => s.type === 'audio')?.index,
-    })
+    let audioWriteStream: number|undefined;
 
     using videoDecoder = readContext.createDecoder(video.index, 'videotoolbox');
     using audioDecoder = readContext.createDecoder(audio.index);
@@ -98,6 +95,21 @@ async function main() {
                         },
                     });
                 }
+                if (!await audioEncoder.sendFrame(audioFrame)) {
+                    console.error('sendFrame failed, frame will be dropped?');
+                    continue;
+                }
+
+                using transcodePacket = await audioEncoder.receivePacket();
+                if (!transcodePacket)
+                    continue;
+
+                if (audioWriteStream === undefined) {
+                    audioWriteStream = audioWriteContext.newStream({
+                        codecContext: audioEncoder,
+                    })
+                }
+                audioWriteContext.writeFrame(audioWriteStream, transcodePacket);
             }
             continue;
         }

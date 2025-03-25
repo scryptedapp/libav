@@ -275,6 +275,9 @@ Napi::Value AVFrameObject::CreateEncoder(const Napi::CallbackInfo &info)
     c->pix_fmt = (enum AVPixelFormat)frame_->format;
     c->time_base.num = timeBaseNum;
     c->time_base.den = timeBaseDen;
+    if (frame_->format != -1) {
+        c->sample_fmt = (enum AVSampleFormat)frame_->format;
+    }
 
     Napi::Value flagsValue = options.Get("flags");
     if (flagsValue.IsNumber())
