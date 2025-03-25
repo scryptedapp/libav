@@ -206,7 +206,6 @@ Napi::Value AVFrameObject::CreateEncoder(const Napi::CallbackInfo &info)
         return env.Undefined();
     }
     Napi::Object timebaseObject = timebaseValue.As<Napi::Object>();
-    // validate the timebase object
     if (!timebaseObject.Has("timeBaseNum") || !timebaseObject.Get("timeBaseNum").IsNumber() ||
         !timebaseObject.Has("timeBaseDen") || !timebaseObject.Get("timeBaseDen").IsNumber())
     {
@@ -250,6 +249,19 @@ Napi::Value AVFrameObject::CreateEncoder(const Napi::CallbackInfo &info)
     }
     else {
         c->rc_buffer_size = c->bit_rate * 2;
+    }
+
+    // get options channels
+    Napi::Value channelsValue = options.Get("channels");
+    if (channelsValue.IsNumber())
+    {
+        int channels = channelsValue.As<Napi::Number>().Int32Value();
+        if (channels == 1) {
+            c->ch_layout = AV_CHANNEL_LAYOUT_MONO;
+        }
+        else {
+            c->ch_layout = AV_CHANNEL_LAYOUT_STEREO;
+        }
     }
 
     c->width = frame_->width;

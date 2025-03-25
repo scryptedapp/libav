@@ -127,6 +127,7 @@ export interface AVFrame extends AVTimeBase {
         timeBase: AVTimeBase,
         framerate?: AVTimeBase,
         flags?: number,
+        channels?: number,
         opts?: {
             [key: string]: string | number,
         },

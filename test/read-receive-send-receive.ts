@@ -64,20 +64,39 @@ async function main() {
         streamIndex: readContext.streams.find(s => s.type === 'audio')?.index,
     })
 
-    using decoder = readContext.createDecoder(video.index, 'videotoolbox');
-    let encoder: AVCodecContext | undefined;
+    using videoDecoder = readContext.createDecoder(video.index, 'videotoolbox');
+    using audioDecoder = readContext.createDecoder(audio.index);
+    let videoEncoder: AVCodecContext | undefined;
+    let audioEncoder: AVCodecContext | undefined;
 
     let framesEncoded = 0;
     while (framesEncoded < 50) {
-        using frameOrPacket = await readContext.receiveFrame(video.index, decoder);
+        using frameOrPacket = await readContext.receiveFrame(video.index, videoDecoder);
         if (!frameOrPacket)
             continue;
 
         const packet = frameOrPacket as AVPacket;
         if (packet.streamIndex !== undefined) {
-
-            if (packet.streamIndex === audio.index)
-                audioWriteContext.writeFrame(audioWriteStream, packet);
+            if (packet.streamIndex === audio.index) {
+                // audioWriteContext.writeFrame(audioWriteStream, packet);
+                if (!await audioDecoder.sendPacket(packet)) {
+                    console.error('sendPacket failed, frame will be dropped?');
+                    continue;
+                }
+                using audioFrame = await audioDecoder.receiveFrame();
+                if (!audioFrame)
+                    continue;
+                if (!audioEncoder) {
+                    audioEncoder = audioFrame.createEncoder({
+                        encoder: 'libopus',
+                        timeBase: audio,
+                        bitrate: 40000,
+                        opts: {
+                            application: 'lowdelay',
+                        },
+                    });
+                }
+            }
             continue;
         }
 
@@ -98,8 +117,8 @@ async function main() {
         if (!filtered)
             continue;
 
-        if (!encoder) {
-            encoder = frame.createEncoder({
+        if (!videoEncoder) {
+            videoEncoder = frame.createEncoder({
                 encoder: 'h264_videotoolbox',
                 bitrate: 1000000,
                 minRate: 10000,
@@ -116,7 +135,7 @@ async function main() {
             });
 
             writeStream = writeContext.newStream({
-                codecContext: encoder,
+                codecContext: videoEncoder,
             });
 
             bsf.copyParameters(writeContext, writeStream);
@@ -137,13 +156,13 @@ async function main() {
         //     frame.pictType = 1;
         // }
 
-        const sent = await encoder.sendFrame(frame);
+        const sent = await videoEncoder.sendFrame(frame);
         if (!sent) {
             console.error('sendFrame failed, frame will be dropped?');
             continue;
         }
 
-        using transcodePacket = await encoder.receivePacket();
+        using transcodePacket = await videoEncoder.receivePacket();
         if (!transcodePacket) {
             console.error('receivePacket needs more frames');
             continue;
@@ -161,7 +180,8 @@ async function main() {
     }
 
     await new Promise(r => setTimeout(r, 1000));
-    encoder?.destroy();
+    videoEncoder?.destroy();
+    audioEncoder?.destroy();
 }
 
 main();
