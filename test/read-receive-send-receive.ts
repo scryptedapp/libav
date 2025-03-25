@@ -59,6 +59,7 @@ async function main() {
 
     using audioWriteContext = createAVFormatContext();
     audioWriteContext.create('rtp', (a) => {
+        // console.log('audio', a.length);
     });
     let audioWriteStream: number|undefined;
 
@@ -87,7 +88,7 @@ async function main() {
 
                 if (!audioFilterGraph) {
                     audioFilterGraph = createAVFilter({
-                        filter: `aresample=48000,aformat=s16`,
+                        filter: `aresample=48000,asetnsamples=n=960:p=0,aformat=s16`,
                         autoConvert: true,
                         frames: [{
                             frame: audioFrame,
@@ -97,39 +98,40 @@ async function main() {
                 }
 
                 audioFilterGraph.addFrame(audioFrame);
-                using resampledFrame = audioFilterGraph.getFrame();
-                if (!resampledFrame)
-                    continue;
-
-                if (!audioEncoder) {
-                    audioEncoder = resampledFrame.createEncoder({
-                        encoder: 'libopus',
-                        timeBase: audio,
-                        bitrate: 40000,
-                        channels: 2,
-                        sampleRate: 48000,
-                        opts: {
-                            application: 'lowdelay',
-                        },
-                    });
+                while (true) {
+                    using resampledFrame = audioFilterGraph.getFrame();
+                    if (!resampledFrame)
+                        break;
+    
+                    if (!audioEncoder) {
+                        audioEncoder = resampledFrame.createEncoder({
+                            encoder: 'libopus',
+                            timeBase: audio,
+                            bitrate: 40000,
+                            opts: {
+                                application: 'lowdelay',
+                            },
+                        });
+                    }
+    
+                    if (!await audioEncoder.sendFrame(resampledFrame)) {
+                        console.error('sendFrame failed, frame will be dropped?');
+                        break;
+                    }
+    
+                    using transcodePacket = await audioEncoder.receivePacket();
+                    if (!transcodePacket)
+                        break;
+    
+    
+                    if (audioWriteStream === undefined) {
+                        audioWriteStream = audioWriteContext.newStream({
+                            codecContext: audioEncoder,
+                        })
+                    }
+                    audioWriteContext.writeFrame(audioWriteStream, transcodePacket);
                 }
-
-                if (!await audioEncoder.sendFrame(resampledFrame)) {
-                    console.error('sendFrame failed, frame will be dropped?');
-                    continue;
-                }
-
-                using transcodePacket = await audioEncoder.receivePacket();
-                if (!transcodePacket)
-                    continue;
-
-
-                if (audioWriteStream === undefined) {
-                    audioWriteStream = audioWriteContext.newStream({
-                        codecContext: audioEncoder,
-                    })
-                }
-                audioWriteContext.writeFrame(audioWriteStream, transcodePacket);
+                continue;
             }
             continue;
         }
