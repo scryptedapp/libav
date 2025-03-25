@@ -4,7 +4,8 @@ async function main() {
     let seenKeyFrame = false;
     setAVLogLevel('trace');
 
-    let filterGraph: AVFilter | undefined;
+    let videoFilterGraph: AVFilter | undefined;
+    let audioFilterGraph: AVFilter | undefined;
 
     using bsf = createAVBitstreamFilter('h264_mp4toannexb');
 
@@ -83,8 +84,24 @@ async function main() {
                 using audioFrame = await audioDecoder.receiveFrame();
                 if (!audioFrame)
                     continue;
+
+                if (!audioFilterGraph) {
+                    audioFilterGraph = createAVFilter({
+                        filter: `aresample,format=s16`,
+                        frames: [{
+                            frame: audioFrame,
+                            timeBase: audio,
+                        }],
+                    });
+                }
+
+                audioFilterGraph.addFrame(audioFrame);
+                using resampledFrame = audioFilterGraph.getFrame();
+                if (!resampledFrame)
+                    continue;
+
                 if (!audioEncoder) {
-                    audioEncoder = audioFrame.createEncoder({
+                    audioEncoder = resampledFrame.createEncoder({
                         encoder: 'libopus',
                         timeBase: audio,
                         bitrate: 40000,
@@ -95,7 +112,8 @@ async function main() {
                         },
                     });
                 }
-                if (!await audioEncoder.sendFrame(audioFrame)) {
+
+                if (!await audioEncoder.sendFrame(resampledFrame)) {
                     console.error('sendFrame failed, frame will be dropped?');
                     continue;
                 }
@@ -103,6 +121,7 @@ async function main() {
                 using transcodePacket = await audioEncoder.receivePacket();
                 if (!transcodePacket)
                     continue;
+
 
                 if (audioWriteStream === undefined) {
                     audioWriteStream = audioWriteContext.newStream({
@@ -116,8 +135,8 @@ async function main() {
 
         const frame = frameOrPacket as AVFrame;
 
-        if (!filterGraph) {
-            filterGraph = createAVFilter({
+        if (!videoFilterGraph) {
+            videoFilterGraph = createAVFilter({
                 filter: `fps=${encoderFps},setpts=N*(${video.timeBaseDen} / ${encoderFps})`,
                 frames: [{
                     frame,
@@ -126,8 +145,8 @@ async function main() {
             });
         }
 
-        filterGraph.addFrame(frame);
-        using filtered = filterGraph.getFrame();
+        videoFilterGraph.addFrame(frame);
+        using filtered = videoFilterGraph.getFrame();
         if (!filtered)
             continue;
 
@@ -186,7 +205,7 @@ async function main() {
         while (true) {
             using filtered = bsf.receivePacket();
             if (!filtered)
-                break
+                break;
 
             writeContext.writeFrame(writeStream!, filtered);
             framesEncoded++;

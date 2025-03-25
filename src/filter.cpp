@@ -170,6 +170,14 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
         frames.push_back(frameObject->frame_);
     }
 
+    if (!frames.size())
+    {
+        Napi::Error::New(env, "At least one frame is required").ThrowAsJavaScriptException();
+        return;
+    }
+
+    bool isVideo = frames[0]->width || frames[0]->height;
+
     // outCount is the number of output frames
     Napi::Value outCountValue = options.Get("outCount");
     unsigned int outCount = 1;
@@ -190,8 +198,8 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
 
     char args[512];
     int ret = 0;
-    const AVFilter *buffersrc = avfilter_get_by_name("buffer");
-    const AVFilter *buffersink = avfilter_get_by_name("buffersink");
+    const AVFilter *buffersrc = isVideo ? avfilter_get_by_name("buffer") : avfilter_get_by_name("abuffer");
+    const AVFilter *buffersink = isVideo ? avfilter_get_by_name("buffersink") : avfilter_get_by_name("abuffersink");
     AVFilterInOut *outputs = nullptr;
     AVFilterInOut *inputs = nullptr;
 
@@ -212,11 +220,20 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
         int timeBaseNum = timeBase.Get("timeBaseNum").As<Napi::Number>().Int32Value();
         int timeBaseDen = timeBase.Get("timeBaseDen").As<Napi::Number>().Int32Value();
 
-        snprintf(args, sizeof(args),
-                 "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
-                 frame_->width, frame_->height, frame_->format,
-                 timeBaseNum, timeBaseDen,
-                 1, 1);
+        if (isVideo)
+        {
+            snprintf(args, sizeof(args),
+                     "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
+                     frame_->width, frame_->height, frame_->format,
+                     timeBaseNum, timeBaseDen,
+                     1, 1);
+        }
+        else
+        {
+            snprintf(args, sizeof(args),
+                     "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=%lld",
+                     timeBaseNum, timeBaseDen, frame_->sample_rate, av_get_sample_fmt_name((enum AVSampleFormat)frame_->format), frame_->ch_layout.u.mask);
+        }
 
         char name[512];
         snprintf(name, sizeof(name), frames.size() == 1 ? "in" : "in%d", i);
@@ -252,13 +269,7 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
         ret = avfilter_init_str(buffersrc_ctx, args);
         if (ret < 0)
         {
-            Napi::Error::New(env, "Cannot oimot buffer source").ThrowAsJavaScriptException();
-            goto end;
-        }
-
-        if (ret < 0)
-        {
-            Napi::Error::New(env, "Cannot create buffer source").ThrowAsJavaScriptException();
+            Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();
             goto end;
         }
 
@@ -333,7 +344,7 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
     }
 
     if ((ret = avfilter_graph_parse_ptr2(filter_graph, filter_descr.c_str(),
-                                        &inputs, &outputs, hw_device_ctx)) < 0)
+                                         &inputs, &outputs, hw_device_ctx)) < 0)
     {
         Napi::Error::New(env, "Cannot parse filter graph").ThrowAsJavaScriptException();
         goto end;
