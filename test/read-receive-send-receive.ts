@@ -91,6 +91,8 @@ async function main() {
                         encoder: 'libopus',
                         timeBase: audio,
                         bitrate: 40000,
+                        channels: 2,
+                        sampleRate: 48000,
                         opts: {
                             application: 'lowdelay',
                         },

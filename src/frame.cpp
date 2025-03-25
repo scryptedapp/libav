@@ -251,7 +251,6 @@ Napi::Value AVFrameObject::CreateEncoder(const Napi::CallbackInfo &info)
         c->rc_buffer_size = c->bit_rate * 2;
     }
 
-    // get options channels
     Napi::Value channelsValue = options.Get("channels");
     if (channelsValue.IsNumber())
     {
@@ -262,6 +261,13 @@ Napi::Value AVFrameObject::CreateEncoder(const Napi::CallbackInfo &info)
         else {
             c->ch_layout = AV_CHANNEL_LAYOUT_STEREO;
         }
+    }
+
+    // sampleRate
+    Napi::Value sampleRateValue = options.Get("sampleRate");
+    if (sampleRateValue.IsNumber())
+    {
+        c->sample_rate = sampleRateValue.As<Napi::Number>().Int32Value();
     }
 
     c->width = frame_->width;
