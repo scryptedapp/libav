@@ -13,13 +13,13 @@ extern "C"
 
 #include "error.h"
 
-class AVBitstreamFilter : public Napi::ObjectWrap<AVBitstreamFilter>
+class AVBitstreamFilterObject : public Napi::ObjectWrap<AVBitstreamFilterObject>
 {
 public:
     static Napi::Object Init(Napi::Env env, Napi::Object exports);
 
-    AVBitstreamFilter(const Napi::CallbackInfo &info);
-    ~AVBitstreamFilter();
+    AVBitstreamFilterObject(const Napi::CallbackInfo &info);
+    ~AVBitstreamFilterObject();
 
     static Napi::Object NewInstance(Napi::Env env, AVBSFContext *bsfContext);
     AVBSFContext *bsfContext;

@@ -2,25 +2,25 @@
 #include "packet.h"
 #include "formatcontext.h"
 
-Napi::FunctionReference AVBitstreamFilter::constructor;
+Napi::FunctionReference AVBitstreamFilterObject::constructor;
 
-Napi::Object AVBitstreamFilter::Init(Napi::Env env, Napi::Object exports)
+Napi::Object AVBitstreamFilterObject::Init(Napi::Env env, Napi::Object exports)
 {
     Napi::HandleScope scope(env);
 
     Napi::Function func = DefineClass(env, "AVBitstreamFilter", {
 
-                                                                      InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVBitstreamFilter::Destroy),
+                                                                      InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AVBitstreamFilterObject::Destroy),
 
-                                                                      InstanceMethod("destroy", &AVBitstreamFilter::Destroy),
+                                                                      InstanceMethod("destroy", &AVBitstreamFilterObject::Destroy),
 
-                                                                      InstanceMethod("setOption", &AVBitstreamFilter::SetOption),
+                                                                      InstanceMethod("setOption", &AVBitstreamFilterObject::SetOption),
 
-                                                                      InstanceMethod("sendPacket", &AVBitstreamFilter::SendPacket),
+                                                                      InstanceMethod("sendPacket", &AVBitstreamFilterObject::SendPacket),
 
-                                                                      InstanceMethod("copyParameters", &AVBitstreamFilter::CopyParameters),
+                                                                      InstanceMethod("copyParameters", &AVBitstreamFilterObject::CopyParameters),
 
-                                                                      InstanceMethod("receivePacket", &AVBitstreamFilter::ReceivePacket)});
+                                                                      InstanceMethod("receivePacket", &AVBitstreamFilterObject::ReceivePacket)});
 
     constructor = Napi::Persistent(func);
     constructor.SuppressDestruct();
@@ -30,8 +30,8 @@ Napi::Object AVBitstreamFilter::Init(Napi::Env env, Napi::Object exports)
     return exports;
 }
 
-AVBitstreamFilter::AVBitstreamFilter(const Napi::CallbackInfo &info)
-    : Napi::ObjectWrap<AVBitstreamFilter>(info), bsfContext(nullptr)
+AVBitstreamFilterObject::AVBitstreamFilterObject(const Napi::CallbackInfo &info)
+    : Napi::ObjectWrap<AVBitstreamFilterObject>(info), bsfContext(nullptr)
 {
     bsfContext = nullptr;
 
@@ -60,20 +60,20 @@ AVBitstreamFilter::AVBitstreamFilter(const Napi::CallbackInfo &info)
     }
 }
 
-AVBitstreamFilter::~AVBitstreamFilter()
+AVBitstreamFilterObject::~AVBitstreamFilterObject()
 {
 }
 
-Napi::Object AVBitstreamFilter::NewInstance(Napi::Env env, AVBSFContext *bsfContext)
+Napi::Object AVBitstreamFilterObject::NewInstance(Napi::Env env, AVBSFContext *bsfContext)
 {
     Napi::EscapableHandleScope scope(env);
     Napi::Object obj = constructor.New({});
-    AVBitstreamFilter *instance = Napi::ObjectWrap<AVBitstreamFilter>::Unwrap(obj);
+    AVBitstreamFilterObject *instance = Napi::ObjectWrap<AVBitstreamFilterObject>::Unwrap(obj);
     instance->bsfContext = bsfContext;
     return scope.Escape(napi_value(obj)).ToObject();
 }
 
-Napi::Value AVBitstreamFilter::SendPacket(const Napi::CallbackInfo &info)
+Napi::Value AVBitstreamFilterObject::SendPacket(const Napi::CallbackInfo &info)
 {
     if (info.Length() < 1 || !info[0].IsObject())
     {
@@ -93,7 +93,7 @@ Napi::Value AVBitstreamFilter::SendPacket(const Napi::CallbackInfo &info)
     return info.Env().Undefined();
 }
 
-Napi::Value AVBitstreamFilter::ReceivePacket(const Napi::CallbackInfo &info)
+Napi::Value AVBitstreamFilterObject::ReceivePacket(const Napi::CallbackInfo &info)
 {
     AVPacket *packet = av_packet_alloc();
     if (!packet)
@@ -119,7 +119,7 @@ Napi::Value AVBitstreamFilter::ReceivePacket(const Napi::CallbackInfo &info)
     return packetObject;
 }
 
-Napi::Value AVBitstreamFilter::SetOption(const Napi::CallbackInfo &info)
+Napi::Value AVBitstreamFilterObject::SetOption(const Napi::CallbackInfo &info)
 {
     if (!bsfContext)
     {
@@ -165,7 +165,7 @@ Napi::Value AVBitstreamFilter::SetOption(const Napi::CallbackInfo &info)
     return info.Env().Undefined();
 }
 
-Napi::Value AVBitstreamFilter::Destroy(const Napi::CallbackInfo &info)
+Napi::Value AVBitstreamFilterObject::Destroy(const Napi::CallbackInfo &info)
 {
     if (bsfContext)
     {
@@ -175,7 +175,7 @@ Napi::Value AVBitstreamFilter::Destroy(const Napi::CallbackInfo &info)
     return info.Env().Undefined();
 }
 
-Napi::Value AVBitstreamFilter::CopyParameters(const Napi::CallbackInfo &info)
+Napi::Value AVBitstreamFilterObject::CopyParameters(const Napi::CallbackInfo &info)
 {
     if (!bsfContext)
     {

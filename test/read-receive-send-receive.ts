@@ -178,6 +178,13 @@ async function main() {
 
             bsf.copyParameters(writeContext, writeStream);
 
+            await using testRtp = createAVFormatContext();
+            testRtp.create('rtp', rtp => {
+            });
+            testRtp.newStream({
+                bsf,
+            })
+
             console.log(createSdp([writeContext, audioWriteContext]));
         }
 

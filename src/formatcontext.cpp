@@ -30,6 +30,7 @@ extern "C"
 #include "bsf.h"
 #include "read-frame-worker.h"
 #include "close-worker.h"
+#include "bsf.h"
 
 static Napi::FunctionReference logCallbackRef;
 
@@ -570,6 +571,7 @@ Napi::Value AVFormatContextObject::NewStream(const Napi::CallbackInfo &info)
     Napi::Object options = info[0].As<Napi::Object>();
 
     Napi::Value codecContextValue = options.Get("codecContext");
+    Napi::Value bsfValue = options.Get("bsf");
     Napi::Value formatContextValue = options.Get("formatContext");
     Napi::Value streamIndexValue = options.Get("streamIndex");
     AVStream *stream;
@@ -630,10 +632,23 @@ Napi::Value AVFormatContextObject::NewStream(const Napi::CallbackInfo &info)
         stream->time_base.num = sourceStream->time_base.num;
         stream->time_base.den = sourceStream->time_base.den;
     }
-    else if (streamIndexValue.IsNumber())
-    {
-        int streamIndex = streamIndexValue.As<Napi::Number>().Int32Value();
-        stream = fmt_ctx_->streams[streamIndex];
+    else if (bsfValue.IsObject()) {
+        AVBitstreamFilterObject *bsfObject = Napi::ObjectWrap<AVBitstreamFilterObject>::Unwrap(bsfValue.As<Napi::Object>());
+        AVBSFContext *bsf = bsfObject->bsfContext;
+        stream = avformat_new_stream(fmt_ctx_, NULL);
+        if (!stream)
+        {
+            Napi::Error::New(env, "Failed to create new stream").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+        AVCodecParameters *codecpar = stream->codecpar;
+        if (avcodec_parameters_copy(codecpar, bsf->par_out) < 0)
+        {
+            Napi::Error::New(env, "Failed to copy codec parameters").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+        stream->time_base.num = bsf->time_base_in.num;
+        stream->time_base.den = bsf->time_base_in.den;
     }
     else {
         // throw
@@ -745,7 +760,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
     AVFrameObject::Init(env, exports);
     AVCodecContextObject::Init(env, exports);
     AVFormatContextObject::Init(env, exports);
-    AVBitstreamFilter::Init(env, exports);
+    AVBitstreamFilterObject::Init(env, exports);
 
     exports.Set(Napi::String::New(env, "setLogLevel"), Napi::Function::New(env, setLogLevel));
     exports.Set(Napi::String::New(env, "createSdp"), Napi::Function::New(env, createSDP));
