@@ -19,8 +19,8 @@ cmake --install _build --config Release
 export PKG_CONFIG_PATH=$PWD/../_opusinstall/lib/pkgconfig:$PKG_CONFIG_PATH
 
 cd ../openh264
-make -j32
-make install-static PREFIX=$PWD/../_openh264install
+make -j32 OS=msvc
+make install-static OS=msvc PREFIX=$PWD/../_openh264install
 export PKG_CONFIG_PATH=$PWD/../_openh264install/lib/pkgconfig:$PKG_CONFIG_PATH
 
 cd ../FFmpeg
