@@ -92,6 +92,7 @@
 
                             "<(module_root_dir)/_vplinstall/lib/vpl.lib",
                             "<(module_root_dir)/_opusinstall/lib/opus.lib",
+                            "<(module_root_dir)/_openh264install/lib/openh264.lib",
 
                             # vulkan
                             "glslang.lib",
@@ -144,6 +145,7 @@
                             "<(module_root_dir)/FFmpeg/libswresample/libswresample.a",
 
                             "<(module_root_dir)/_opusinstall/lib/libopus.a",
+                            "<(module_root_dir)/_openh264install/lib/libopenh264.a",
                         ],
                     },
                 ],
@@ -182,6 +184,7 @@
                             "<(module_root_dir)/FFmpeg/libswscale/libswscale.a",
                             "<(module_root_dir)/FFmpeg/libswresample/libswresample.a",
                             "<(module_root_dir)/_opusinstall/lib/libopus.a",
+                            "<(module_root_dir)/_openh264install/lib/libopenh264.a",
                             "-ldrm",
                             "-lva",
                             "-lva-drm",

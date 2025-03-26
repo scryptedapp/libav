@@ -4,3 +4,5 @@ lib
 _vplinstall
 _nvinstall
 _opusinstall
+_openh264install
+.DS_Store
