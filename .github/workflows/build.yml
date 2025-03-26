@@ -33,7 +33,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        submodules: 'recursive'
+        submodules: true
 
     # x86_64 needs yasm
     - name: Set up Homebrew
