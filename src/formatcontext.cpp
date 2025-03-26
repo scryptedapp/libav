@@ -687,6 +687,8 @@ Napi::Value AVFormatContextObject::GetStreams(const Napi::CallbackInfo &info)
         stream.Set("type", Napi::String::New(env, av_get_media_type_string(s->codecpar->codec_type)));
         stream.Set("timeBaseNum", Napi::Number::New(env, s->time_base.num));
         stream.Set("timeBaseDen", Napi::Number::New(env, s->time_base.den));
+        stream.Set("width", Napi::Number::New(env, s->codecpar->width));
+        stream.Set("height", Napi::Number::New(env, s->codecpar->height));
         streams.Set(i, stream);
     }
 

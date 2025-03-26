@@ -192,6 +192,8 @@ export interface AVStream extends AVTimeBase {
     readonly index: number;
     readonly codec: string;
     readonly type: string;
+    readonly width: number;
+    readonly height: number;
 }
 
 export interface AVTimeBase {
