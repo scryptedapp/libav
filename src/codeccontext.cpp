@@ -271,7 +271,7 @@ Napi::Value AVCodecContextObject::GetVendorInfo(const Napi::CallbackInfo &info)
     }
 
     const char *name = av_get_pix_fmt_name(hw_pix_fmt);
-    if (strcmp(name, "vaapi"))
+    if (!name || strcmp(name, "vaapi"))
     {
         return env.Undefined();
     }
@@ -289,6 +289,9 @@ Napi::Value AVCodecContextObject::GetVendorInfo(const Napi::CallbackInfo &info)
     }
 
     void *display = vaapi_device_ctx->display;
+    if (!display) {
+        return env.Undefined();
+    }
     const char *driver = vaQueryVendorString(display);
     if (!driver)
     {
