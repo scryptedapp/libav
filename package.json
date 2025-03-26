@@ -1,6 +1,6 @@
 {
   "name": "@scrypted/libav",
-  "version": "1.0.180",
+  "version": "1.0.181",
   "dependencies": {
     "detect-libc": "^2.0.3",
     "follow-redirects": "^1.15.9",
