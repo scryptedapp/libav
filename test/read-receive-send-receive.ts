@@ -1,4 +1,4 @@
-import { AVCodecContext, AVFilter, AVFrame, AVPacket, createAVBitstreamFilter, createAVFilter, createAVFormatContext, createSdp, setAVLogLevel } from '../src';
+import { AVCodecContext, AVCodecFlags, AVFilter, AVFrame, AVPacket, createAVBitstreamFilter, createAVFilter, createAVFormatContext, createSdp, setAVLogLevel } from '../src';
 
 async function main() {
     let seenKeyFrame = false;
@@ -61,7 +61,7 @@ async function main() {
     audioWriteContext.create('rtp', (a) => {
         // console.log('audio', a.length);
     });
-    let audioWriteStream: number|undefined;
+    let audioWriteStream: number | undefined;
 
     const hwaccel = process.platform === 'darwin' ? 'videotoolbox' : 'cuda';
     const videoEncoderCodec = process.platform === 'darwin' ? 'h264_videotoolbox' : 'h264_nvenc';
@@ -104,7 +104,7 @@ async function main() {
                     using resampledFrame = audioFilterGraph.getFrame();
                     if (!resampledFrame)
                         break;
-    
+
                     if (!audioEncoder) {
                         audioEncoder = resampledFrame.createEncoder({
                             encoder: 'libopus',
@@ -115,17 +115,17 @@ async function main() {
                             },
                         });
                     }
-    
+
                     if (!await audioEncoder.sendFrame(resampledFrame)) {
                         console.error('sendFrame failed, frame will be dropped?');
                         break;
                     }
-    
+
                     using transcodePacket = await audioEncoder.receivePacket();
                     if (!transcodePacket)
                         break;
-    
-    
+
+
                     if (audioWriteStream === undefined) {
                         audioWriteStream = audioWriteContext.newStream({
                             codecContext: audioEncoder,
@@ -169,7 +169,10 @@ async function main() {
                 opts: {
                     // needed by cuda and maybe others?
                     'forced-idr': 1,
-                }
+                    // videotoolbox flag
+                    realtime: 1,
+                },
+                flags: AVCodecFlags.AV_CODEC_FLAG_LOW_DELAY,
             });
 
             writeStream = writeContext.newStream({
