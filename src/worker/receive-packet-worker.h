@@ -3,8 +3,7 @@
 extern "C" {
 #include <libavcodec/avcodec.h>
 }
-#include "error.h"
-#include "packet.h"
+#include "../packet.h"
 
 class ReceivePacketWorker : public Napi::AsyncWorker {
 public:

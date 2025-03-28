@@ -1,4 +1,5 @@
 #include "send-packet-worker.h"
+#include "../error.h"
 
 SendPacketWorker::SendPacketWorker(napi_env env, napi_deferred deferred, AVCodecContextObject *codecContext, AVPacketObject *packet)
     : Napi::AsyncWorker(env), result(false), deferred(deferred), codecContext(codecContext), packet(packet)

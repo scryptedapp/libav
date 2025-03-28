@@ -1,6 +1,6 @@
 #include "close-worker.h"
-#include "formatcontext.h"
-#include "error.h"
+#include "../formatcontext.h"
+#include "../error.h"
 
 CloseWorker::CloseWorker(napi_env env, napi_deferred deferred, AVFormatContextObject *formatContextObject)
     : Napi::AsyncWorker(env), deferred(deferred), formatContextObject(formatContextObject)

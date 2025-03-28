@@ -1,6 +1,6 @@
-#include "openworker.h"
-#include "formatcontext.h"
-#include "error.h"
+#include "open-worker.h"
+#include "../formatcontext.h"
+#include "../error.h"
 
 OpenWorker::OpenWorker(napi_env env, napi_deferred deferred, AVFormatContextObject *formatContextObject, const std::string &filename)
     : Napi::AsyncWorker(env), deferred(deferred), formatContextObject(formatContextObject), filename(filename)

@@ -3,13 +3,12 @@
 extern "C" {
 #include <libavcodec/avcodec.h>
 }
-#include "error.h"
-#include "frame.h"
-#include "codeccontext.h"
+#include "../packet.h"
+#include "../codeccontext.h"
 
-class SendFrameWorker : public Napi::AsyncWorker {
+class SendPacketWorker : public Napi::AsyncWorker {
 public:
-    SendFrameWorker(napi_env env, napi_deferred deferred, AVCodecContextObject *codecContext, AVFrameObject *frame);
+    SendPacketWorker(napi_env env, napi_deferred deferred, AVCodecContextObject *codecContext, AVPacketObject *packet);
     void Execute() override;
     void OnOK() override;
     void OnError(const Napi::Error &e) override;
@@ -18,5 +17,5 @@ private:
     bool result;
     napi_deferred deferred;
     AVCodecContextObject *codecContext;
-    AVFrameObject *frame;
+    AVPacketObject *packet;
 };

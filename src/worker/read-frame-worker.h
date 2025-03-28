@@ -4,11 +4,8 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 }
-#include "error.h"
-#include "frame.h"
-#include "packet.h"
-#include "formatcontext.h"
-#include "codeccontext.h"
+#include "../formatcontext.h"
+#include "../codeccontext.h"
 
 class ReadFrameWorker : public Napi::AsyncWorker {
 public:

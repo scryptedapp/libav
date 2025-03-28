@@ -23,10 +23,10 @@ extern "C"
 #include "error.h"
 #include "codeccontext.h"
 #include "frame.h"
-#include "receive-frame-worker.h"
-#include "receive-packet-worker.h"
-#include "send-frame-worker.h"
-#include "send-packet-worker.h"
+#include "worker/receive-frame-worker.h"
+#include "worker/receive-packet-worker.h"
+#include "worker/send-frame-worker.h"
+#include "worker/send-packet-worker.h"
 
 Napi::FunctionReference AVCodecContextObject::constructor;
 

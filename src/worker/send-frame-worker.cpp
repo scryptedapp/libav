@@ -1,4 +1,5 @@
 #include "send-frame-worker.h"
+#include "../error.h"
 
 SendFrameWorker::SendFrameWorker(napi_env env, napi_deferred deferred, AVCodecContextObject *codecContext, AVFrameObject *frame)
     : Napi::AsyncWorker(env), result(false), deferred(deferred), codecContext(codecContext), frame(frame)

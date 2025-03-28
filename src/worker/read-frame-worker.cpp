@@ -1,4 +1,7 @@
 #include "read-frame-worker.h"
+#include "../error.h"
+#include "../packet.h"
+#include "../frame.h"
 
 ReadFrameWorker::ReadFrameWorker(napi_env env, napi_deferred deferred, AVFormatContextObject *formatContextObject, AVCodecContextObject *codecContextObject, int streamIndex)
     : Napi::AsyncWorker(env), deferred(deferred), formatContextObject(formatContextObject), codecContextObject(codecContextObject), streamIndex(streamIndex), packetResult(nullptr), frameResult(nullptr)

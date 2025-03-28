@@ -1,8 +1,6 @@
 #pragma once
 #include <napi.h>
-#include "error.h"
-#include "frame.h"
-#include "codeccontext.h"
+#include "../codeccontext.h"
 
 class ReceiveFrameWorker : public Napi::AsyncWorker {
 public:

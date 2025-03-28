@@ -28,8 +28,9 @@ extern "C"
 #include "codeccontext.h"
 #include "packet.h"
 #include "bsf.h"
-#include "read-frame-worker.h"
-#include "close-worker.h"
+#include "worker/read-frame-worker.h"
+#include "worker/close-worker.h"
+#include "worker/open-worker.h"
 #include "bsf.h"
 
 static Napi::FunctionReference logCallbackRef;

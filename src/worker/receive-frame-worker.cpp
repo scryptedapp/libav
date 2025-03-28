@@ -1,4 +1,6 @@
 #include "receive-frame-worker.h"
+#include "../error.h"
+#include "../frame.h"
 
 ReceiveFrameWorker::ReceiveFrameWorker(napi_env env, napi_deferred deferred, AVCodecContextObject *codecContext)
     : Napi::AsyncWorker(env), result(nullptr), deferred(deferred), codecContext(codecContext)

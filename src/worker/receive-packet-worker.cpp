@@ -1,4 +1,5 @@
 #include "receive-packet-worker.h"
+#include "../error.h"
 
 ReceivePacketWorker::ReceivePacketWorker(napi_env env, napi_deferred deferred, AVCodecContext *codecContext)
     : Napi::AsyncWorker(env), result(nullptr), deferred(deferred), codecContext(codecContext)
