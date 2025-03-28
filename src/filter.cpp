@@ -238,15 +238,12 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
         }
         else
         {
-            #if defined(__linux__)
-                #define UINT64_FORMAT "%lu"
-            #else
-                #define UINT64_FORMAT "%llu"
-            #endif
-
             snprintf(args, sizeof(args),
-                     "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=" UINT64_FORMAT,
-                     timeBaseNum, timeBaseDen, frame_->sample_rate, av_get_sample_fmt_name((enum AVSampleFormat)frame_->format), frame_->ch_layout.u.mask);
+                     "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=%s",
+                     timeBaseNum, timeBaseDen,
+                     frame_->sample_rate,
+                     av_get_sample_fmt_name((enum AVSampleFormat)frame_->format),
+                     frame_->ch_layout.nb_channels == 1 ? "mono" : "stereo");
         }
 
         char name[512];
