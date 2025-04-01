@@ -2,19 +2,21 @@
 #include "../formatcontext.h"
 #include "../error.h"
 
-OpenWorker::OpenWorker(napi_env env, napi_deferred deferred, AVFormatContextObject *formatContextObject, const std::string &filename)
-    : Napi::AsyncWorker(env), deferred(deferred), formatContextObject(formatContextObject), filename(filename)
+OpenWorker::OpenWorker(napi_env env, napi_deferred deferred, AVFormatContextObject *formatContextObject, const std::string &filename, AVDictionary* options)
+    : Napi::AsyncWorker(env), deferred(deferred), formatContextObject(formatContextObject), filename(filename), options(options)
 {
 }
 
 void OpenWorker::Execute()
 {
-    AVDictionary *options = nullptr;
     int ret = avformat_open_input(&formatContextObject->fmt_ctx_, filename.c_str(), NULL, &options);
     if (ret < 0)
     {
         SetError(AVErrorString(ret));
         return;
+    }
+    if (options) {
+        av_dict_free(&options);
     }
     formatContextObject->is_input = true;
 }

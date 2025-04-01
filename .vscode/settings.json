@@ -30,6 +30,7 @@
         "__bit_reference": "cpp",
         "initializer_list": "cpp",
         "new": "cpp",
-        "rtpenc.h": "c"
+        "rtpenc.h": "c",
+        "filesystem": "cpp"
     }
 }

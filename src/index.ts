@@ -208,7 +208,7 @@ export interface AVFormatContext {
     // dispose is async here because the format context may be using a network input
     // like RTSP which may require issuing and waiting for a TEARDOWN
     [Symbol.asyncDispose](): Promise<void>;
-    open(input: string): Promise<void>;
+    open(input: string, options?: Record<string, string>): Promise<void>;
     createDecoder(streamIndex: number, hardwareDevice?: string, decoder?: string, deviceName?: string): AVCodecContext;
     readFrame(): Promise<AVPacket>;
     receiveFrame(streamIndex: number, codecContext: AVCodecContext): Promise<AVFrame | AVPacket>;

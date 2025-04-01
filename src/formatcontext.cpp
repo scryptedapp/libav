@@ -230,8 +230,26 @@ Napi::Value AVFormatContextObject::Open(const Napi::CallbackInfo &info)
 
     std::string filename = info[0].As<Napi::String>().Utf8Value();
 
-    // Create and queue the AsyncWorker, passing the deferred handle
-    OpenWorker *worker = new OpenWorker(env, deferred, this, filename);
+    // Convert JS options to AVDictionary in the main thread
+    AVDictionary *dict_opts = nullptr;
+    if (info.Length() > 1 && info[1].IsObject())
+    {
+        Napi::Object options = info[1].As<Napi::Object>();
+        Napi::Array props = options.GetPropertyNames();
+        for (uint32_t i = 0; i < props.Length(); i++)
+        {
+            Napi::Value key = props.Get(i);
+            Napi::Value value = options.Get(key);
+            if (key.IsString() && value.IsString())
+            {
+                av_dict_set(&dict_opts, key.As<Napi::String>().Utf8Value().c_str(),
+                            value.As<Napi::String>().Utf8Value().c_str(), 0);
+            }
+        }
+    }
+
+    // Create and queue the AsyncWorker, passing the deferred handle and dictionary
+    OpenWorker *worker = new OpenWorker(env, deferred, this, filename, dict_opts);
     worker->Queue();
 
     // Return the promise to JavaScript
@@ -581,7 +599,7 @@ Napi::Value AVFormatContextObject::NewStream(const Napi::CallbackInfo &info)
     {
         AVCodecContextObject *codecContextObject = Napi::ObjectWrap<AVCodecContextObject>::Unwrap(codecContextValue.As<Napi::Object>());
         AVCodecContext *codecContext = codecContextObject->codecContext;
-    
+
         // Create a new stream
         stream = avformat_new_stream(fmt_ctx_, NULL);
         if (!stream)
@@ -589,12 +607,12 @@ Napi::Value AVFormatContextObject::NewStream(const Napi::CallbackInfo &info)
             Napi::Error::New(env, "Failed to create new stream").ThrowAsJavaScriptException();
             return env.Undefined();
         }
-    
+
         // Set the codec parameters for the new stream
         AVCodecParameters *codecpar = stream->codecpar;
         stream->time_base.num = codecContext->time_base.num;
         stream->time_base.den = codecContext->time_base.den;
-    
+
         avcodec_parameters_from_context(codecpar, codecContext);
     }
     else if (formatContextValue.IsObject())
@@ -633,7 +651,8 @@ Napi::Value AVFormatContextObject::NewStream(const Napi::CallbackInfo &info)
         stream->time_base.num = sourceStream->time_base.num;
         stream->time_base.den = sourceStream->time_base.den;
     }
-    else if (bsfValue.IsObject()) {
+    else if (bsfValue.IsObject())
+    {
         AVBitstreamFilterObject *bsfObject = Napi::ObjectWrap<AVBitstreamFilterObject>::Unwrap(bsfValue.As<Napi::Object>());
         AVBSFContext *bsf = bsfObject->bsfContext;
         stream = avformat_new_stream(fmt_ctx_, NULL);
@@ -651,7 +670,8 @@ Napi::Value AVFormatContextObject::NewStream(const Napi::CallbackInfo &info)
         stream->time_base.num = bsf->time_base_in.num;
         stream->time_base.den = bsf->time_base_in.den;
     }
-    else {
+    else
+    {
         // throw
         Napi::Error::New(env, "Object expected for codecContext or formatContext").ThrowAsJavaScriptException();
         return env.Undefined();
@@ -719,10 +739,12 @@ Napi::Value AVFormatContextObject::CreateSDP(const Napi::CallbackInfo &info)
     return sdpString;
 }
 
-Napi::Value createSDP(const Napi::CallbackInfo &info) {
+Napi::Value createSDP(const Napi::CallbackInfo &info)
+{
     Napi::Env env = info.Env();
 
-    if (info.Length() < 1 || !info[0].IsArray()) {
+    if (info.Length() < 1 || !info[0].IsArray())
+    {
         Napi::TypeError::New(env, "Array of AVFormatContext expected for argument 0").ThrowAsJavaScriptException();
         return env.Undefined();
     }
@@ -731,12 +753,14 @@ Napi::Value createSDP(const Napi::CallbackInfo &info) {
     size_t length = formatContextArray.Length();
     AVFormatContext *ctx[100];
 
-    if (length > 100) {
+    if (length > 100)
+    {
         Napi::Error::New(env, "Array length must be less than 100").ThrowAsJavaScriptException();
         return env.Undefined();
     }
 
-    for (size_t i = 0; i < length; i++) {
+    for (size_t i = 0; i < length; i++)
+    {
         Napi::Object formatContextObject = formatContextArray.Get(i).As<Napi::Object>();
         AVFormatContextObject *avFormatContextObject = Napi::ObjectWrap<AVFormatContextObject>::Unwrap(formatContextObject);
         ctx[i] = avFormatContextObject->fmt_ctx_;
@@ -744,7 +768,8 @@ Napi::Value createSDP(const Napi::CallbackInfo &info) {
 
     char sdp[65536];
     int ret = av_sdp_create(ctx, length, sdp, sizeof(sdp));
-    if (ret < 0) {
+    if (ret < 0)
+    {
         Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();
         return env.Undefined();
     }
