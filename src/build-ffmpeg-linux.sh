@@ -49,11 +49,11 @@ then
 
     echo "Building with NVIDIA GPU and Vulkan support"
     export PATH=/usr/local/cuda-12.4/bin:$PATH
-    ./configure --enable-libopenh264 --enable-encoder=libopenh264 --enable-libopus --enable-encoder=libopus --enable-decoder=libopus --enable-libvpl --enable-vaapi --enable-opencl --enable-libglslang --enable-cuda-llvm --enable-nvdec --extra-cflags=-I/usr/local/cuda/include --extra-ldflags=-L/usr/local/cuda/lib64
+    ./configure --enable-libopenh264 --enable-gnutls --enable-encoder=libopenh264 --enable-libopus --enable-encoder=libopus --enable-decoder=libopus --enable-libvpl --enable-vaapi --enable-opencl --enable-libglslang --enable-cuda-llvm --enable-nvdec --extra-cflags=-I/usr/local/cuda/include --extra-ldflags=-L/usr/local/cuda/lib64
 else
     check_ffmpeg
 
-    ./configure --enable-libopenh264 --enable-encoder=libopenh264 --enable-libopus --enable-encoder=libopus --enable-decoder=libopus --enable-vaapi --enable-opencl
+    ./configure --enable-libopenh264 --enable-gnutls --enable-encoder=libopenh264 --enable-libopus --enable-encoder=libopus --enable-decoder=libopus --enable-vaapi --enable-opencl
 fi
 
 if [ "$?" != "0" ]
