@@ -9,7 +9,7 @@
             "type": "node",
             "request": "launch",
             "args": [
-                "${workspaceRoot}/test/read-receive-send-receive.ts"
+                "${workspaceRoot}/test/pipeline.ts"
             ],
             "preLaunchTask": "npm: build",
             "runtimeArgs": [

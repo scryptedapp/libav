@@ -211,9 +211,10 @@ export interface AVFormatContext {
     open(input: string, options?: Record<string, string>): Promise<void>;
     createDecoder(streamIndex: number, hardwareDevice?: string, decoder?: string, deviceName?: string): AVCodecContext;
     readFrame(): Promise<AVPacket>;
-    receiveFrame(decoders: {
+    receiveFrame(pipelines: {
         streamIndex: number;
-        codecContext: AVCodecContext;
+        decoder: AVCodecContext;
+        filter?: AVFilter;
     }[]): Promise<(AVFrame & { streamIndex: number; type: 'frame'; }) | (AVPacket & { type: 'packet'; }) | null | undefined>;
     create(format: string, callback: (buffer: Buffer) => void): void;
     newStream(options: {

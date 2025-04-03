@@ -3,8 +3,11 @@
 #include "../packet.h"
 #include "../frame.h"
 
-ReadFrameWorker::ReadFrameWorker(napi_env env, napi_deferred deferred, AVFormatContextObject *formatContextObject, const std::map<int, AVCodecContextObject *> &codecContextMap)
-    : Napi::AsyncWorker(env), deferred(deferred), formatContextObject(formatContextObject), codecContextMap(codecContextMap), packetResult(nullptr), frameResult(nullptr)
+ReadFrameWorker::ReadFrameWorker(napi_env env, napi_deferred deferred, AVFormatContextObject *formatContextObject,
+                                 const std::map<int, AVCodecContextObject *> &decoders,
+                                 const std::map<int, AVFilterGraphObject *> &filters)
+    : Napi::AsyncWorker(env), deferred(deferred), formatContextObject(formatContextObject),
+      decoders(decoders), filters(filters), packetResult(nullptr), frameResult(nullptr)
 {
 }
 
@@ -35,7 +38,7 @@ void ReadFrameWorker::Execute()
     while (true)
     {
         // Try to receive frames from each codec context first
-        for (const auto &pair : codecContextMap)
+        for (const auto &pair : decoders)
         {
             AVCodecContext *codecContext = pair.second->codecContext;
             if (!codecContext)
@@ -44,9 +47,53 @@ void ReadFrameWorker::Execute()
             ret = avcodec_receive_frame(codecContext, frame);
             if (!ret)
             {
-                // Got a frame, store both frame and stream index
+                // Check if there's a filter for this stream
+                auto filterIt = filters.find(pair.first);
+                if (filterIt == filters.end())
+                {
+                    // No filter, use decoded frame directly
+                    av_packet_free(&packet);
+                    frameResult = frame;
+                    frameStreamIndex = pair.first;
+                    return;
+                }
+                
+                AVFilterGraphObject *filter = filterIt->second;
+                AVFilterContext *buffersrc_ctx = filter->buffersrc_ctxs[0];
+                AVFilterContext *buffersink_ctx = filter->buffersink_ctxs[0];
+
+                // Feed the frame to the buffer source filter
+                int ret = av_buffersrc_add_frame_flags(buffersrc_ctx, frame, AV_BUFFERSRC_FLAG_KEEP_REF);
+                if (ret < 0)
+                {
+                    av_frame_free(&frame);
+                    av_packet_free(&packet);
+                    SetError(AVErrorString(ret));
+                    return;
+                }
+
+                // Get filtered frame
+                AVFrame *filtered_frame = av_frame_alloc();
+                ret = av_buffersink_get_frame(buffersink_ctx, filtered_frame);
+                if (ret == AVERROR(EAGAIN))
+                {
+                    // Need more input frames
+                    av_frame_free(&filtered_frame);
+                    continue;
+                }
+                if (ret < 0)
+                {
+                    av_frame_free(&frame);
+                    av_frame_free(&filtered_frame);
+                    av_packet_free(&packet);
+                    SetError(AVErrorString(ret));
+                    return;
+                }
+
+                // Use filtered frame
+                av_frame_free(&frame);
                 av_packet_free(&packet);
-                frameResult = frame;
+                frameResult = filtered_frame;
                 frameStreamIndex = pair.first;
                 return;
             }
@@ -77,8 +124,8 @@ void ReadFrameWorker::Execute()
         }
 
         // Check if we have a decoder for this stream
-        auto it = codecContextMap.find(packet->stream_index);
-        if (it == codecContextMap.end())
+        auto it = decoders.find(packet->stream_index);
+        if (it == decoders.end())
         {
             // No decoder for this stream, return the packet as-is
             av_frame_free(&frame);
