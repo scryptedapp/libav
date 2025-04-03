@@ -177,7 +177,8 @@ Napi::Value AVFormatContextObject::ReadFrame(const Napi::CallbackInfo &info)
     napi_create_promise(env, &deferred, &promise);
 
     // Create and queue the AsyncWorker, passing the deferred handle
-    ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, this, nullptr, 0);
+    std::map<int, AVCodecContextObject*> codecContextMap;
+    ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, this, codecContextMap);
     worker->Queue();
 
     // Return the promise to JavaScript
@@ -192,22 +193,39 @@ Napi::Value AVFormatContextObject::ReceiveFrame(const Napi::CallbackInfo &info)
     napi_value promise;
     napi_create_promise(env, &deferred, &promise);
 
-    if (info.Length() < 1 || !info[0].IsNumber())
+    if (info.Length() < 1 || !info[0].IsArray())
     {
-        Napi::TypeError::New(env, "Number expected for argument 1: streamIndex").ThrowAsJavaScriptException();
+        Napi::TypeError::New(env, "Array expected for argument 0: decoders").ThrowAsJavaScriptException();
         return env.Undefined();
     }
-    int streamIndex = info[0].As<Napi::Number>().Int32Value();
 
-    if (info.Length() < 2 || !info[1].IsObject())
-    {
-        Napi::TypeError::New(env, "Object expected for argument 0: codecContext").ThrowAsJavaScriptException();
-        return env.Undefined();
+    Napi::Array decodersArray = info[0].As<Napi::Array>();
+    std::map<int, AVCodecContextObject*> codecContextMap;
+
+    // Convert array to map
+    for (uint32_t i = 0; i < decodersArray.Length(); i++) {
+        Napi::Value item = decodersArray[i];
+        if (!item.IsObject()) {
+            Napi::TypeError::New(env, "Each decoder must be an object").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        Napi::Object decoder = item.As<Napi::Object>();
+        if (!decoder.Has("streamIndex") || !decoder.Has("codecContext")) {
+            Napi::TypeError::New(env, "Decoder objects must have streamIndex and codecContext").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        int streamIndex = decoder.Get("streamIndex").As<Napi::Number>().Int32Value();
+        AVCodecContextObject *codecContextObject = Napi::ObjectWrap<AVCodecContextObject>::Unwrap(
+            decoder.Get("codecContext").As<Napi::Object>()
+        );
+
+        codecContextMap[streamIndex] = codecContextObject;
     }
-    AVCodecContextObject *codecContextObject = Napi::ObjectWrap<AVCodecContextObject>::Unwrap(info[1].As<Napi::Object>());
 
     // Create and queue the AsyncWorker, passing the deferred handle
-    ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, this, codecContextObject, streamIndex);
+    ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, this, codecContextMap);
     worker->Queue();
 
     // Return the promise to JavaScript

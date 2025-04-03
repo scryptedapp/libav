@@ -31,6 +31,7 @@
         "initializer_list": "cpp",
         "new": "cpp",
         "rtpenc.h": "c",
-        "filesystem": "cpp"
+        "filesystem": "cpp",
+        "map": "cpp"
     }
 }

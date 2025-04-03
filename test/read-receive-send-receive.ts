@@ -10,7 +10,7 @@ async function main() {
     using bsf = createAVBitstreamFilter('h264_mp4toannexb');
 
     await using readContext = createAVFormatContext();
-    await readContext.open("rtsp://192.168.2.130:53043/c3fadcb6b9a1d9b0");
+    await readContext.open("rtsp://192.168.2.130:49341/82db61046d761b5c");
     const video = readContext.streams.find(s => s.type === 'video')!;
     const audio = readContext.streams.find(s => s.type === 'audio')!;
 
@@ -73,12 +73,17 @@ async function main() {
 
     let framesEncoded = 0;
     while (framesEncoded < 50) {
-        using frameOrPacket = await readContext.receiveFrame(video.index, videoDecoder);
+        using frameOrPacket = await readContext.receiveFrame([
+            {
+                streamIndex: video.index,
+                codecContext: videoDecoder,
+            }
+        ]);
         if (!frameOrPacket)
             continue;
 
-        const packet = frameOrPacket as AVPacket;
-        if (packet.streamIndex !== undefined) {
+        if (frameOrPacket.type === 'packet') {
+            const packet = frameOrPacket;
             if (packet.streamIndex === audio.index) {
                 // audioWriteContext.writeFrame(audioWriteStream, packet);
                 if (!await audioDecoder.sendPacket(packet)) {
@@ -138,7 +143,7 @@ async function main() {
             continue;
         }
 
-        const frame = frameOrPacket as AVFrame;
+        const frame = frameOrPacket;
 
         if (!videoFilterGraph) {
             videoFilterGraph = createAVFilter({
