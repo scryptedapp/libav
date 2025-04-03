@@ -178,8 +178,9 @@ Napi::Value AVFormatContextObject::ReadFrame(const Napi::CallbackInfo &info)
 
     // Create and queue the AsyncWorker, passing the deferred handle
     std::map<int, AVCodecContextObject *> decoders;
+    std::map<int, AVCodecContextObject *> encoders;
     std::map<int, AVFilterGraphObject *> filters;
-    ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, this, decoders, filters);
+    ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, this, decoders, filters, encoders);
     worker->Queue();
 
     // Return the promise to JavaScript
@@ -202,8 +203,7 @@ Napi::Value AVFormatContextObject::ReceiveFrame(const Napi::CallbackInfo &info)
 
     Napi::Array decodersArray = info[0].As<Napi::Array>();
     std::map<int, AVCodecContextObject *> decoders;
-
-    // Convert array to maps for decoders and filters
+    std::map<int, AVCodecContextObject *> encoders;
     std::map<int, AVFilterGraphObject *> filters;
     for (uint32_t i = 0; i < decodersArray.Length(); i++)
     {
@@ -238,10 +238,22 @@ Napi::Value AVFormatContextObject::ReceiveFrame(const Napi::CallbackInfo &info)
                 filters[streamIndex] = filterObject;
             }
         }
+
+        // Check for optional encoder
+        if (pipeline.Has("encoder"))
+        {
+            auto encoder = pipeline.Get("encoder");
+            if (encoder.IsObject())
+            {
+                AVCodecContextObject *encoderObject = Napi::ObjectWrap<AVCodecContextObject>::Unwrap(
+                    encoder.As<Napi::Object>());
+                encoders[streamIndex] = encoderObject;
+            }
+        }
     }
 
     // Create and queue the AsyncWorker, passing the deferred handle
-    ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, this, decoders, filters);
+    ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, this, decoders, filters, encoders);
     worker->Queue();
 
     // Return the promise to JavaScript

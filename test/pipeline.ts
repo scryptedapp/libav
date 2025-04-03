@@ -7,8 +7,6 @@ async function main() {
     let videoFilterGraph: AVFilter | undefined;
     let audioFilterGraph: AVFilter | undefined;
 
-    using bsf = createAVBitstreamFilter('h264_mp4toannexb');
-
     await using readContext = createAVFormatContext();
     await readContext.open("rtsp://192.168.2.130:49341/82db61046d761b5c");
     const video = readContext.streams.find(s => s.type === 'video')!;
@@ -55,7 +53,7 @@ async function main() {
                 framesSinceIdr++;
         }
     });
-    let writeStream: number | undefined;
+    let videoWriteStream: number | undefined;
 
     await using audioWriteContext = createAVFormatContext();
     audioWriteContext.create('rtp', (a) => {
@@ -77,18 +75,43 @@ async function main() {
             {
                 streamIndex: video.index,
                 decoder: videoDecoder,
+                filter: videoFilterGraph,
+                encoder: videoEncoder,
             },
             {
                 streamIndex: audio.index,
                 decoder: audioDecoder,
                 filter: audioFilterGraph,
+                encoder: audioEncoder,
             }
         ]);
         if (!frameOrPacket)
             continue;
 
-        if (frameOrPacket.type === 'packet')
+        if (frameOrPacket.type === 'packet') {
+            if (frameOrPacket.inputStreamIndex === audio.index) {
+                if (audioWriteStream === undefined) {
+                    audioWriteStream = audioWriteContext.newStream({
+                        codecContext: audioEncoder,
+                    })
+                }
+                audioWriteContext.writeFrame(audioWriteStream, frameOrPacket);
+            }
+            else if (frameOrPacket.inputStreamIndex === video.index) {
+                framesEncoded++;
+                if (videoWriteStream === undefined) {
+                    videoWriteStream = writeContext.newStream({
+                        codecContext: videoEncoder,
+                    });
+                    console.log(createSdp([writeContext, audioWriteContext]));
+                }
+                writeContext.writeFrame(videoWriteStream, frameOrPacket);
+            }
+            else {
+                console.error('Unknown stream index in packet', frameOrPacket.inputStreamIndex);
+            }
             continue;
+        }
 
         if (frameOrPacket.streamIndex === audio.index) {
             const audioFrame = frameOrPacket;
@@ -117,24 +140,13 @@ async function main() {
                         application: 'lowdelay',
                     },
                 });
+
+                if (!await audioEncoder.sendFrame(audioFrame))
+                    console.error('sendFrame failed, frame will be dropped?');
+                continue;
             }
 
-            if (!await audioEncoder.sendFrame(audioFrame)) {
-                console.error('sendFrame failed, frame will be dropped?');
-                break;
-            }
-
-            using transcodePacket = await audioEncoder.receivePacket();
-            if (!transcodePacket)
-                break;
-
-
-            if (audioWriteStream === undefined) {
-                audioWriteStream = audioWriteContext.newStream({
-                    codecContext: audioEncoder,
-                })
-            }
-            audioWriteContext.writeFrame(audioWriteStream, transcodePacket);
+            console.warn('audio frame received after encoder was created, this should not happen!');
             continue;
         }
 
@@ -148,12 +160,10 @@ async function main() {
                     timeBase: video,
                 }],
             });
-        }
 
-        videoFilterGraph.addFrame(frame);
-        using filtered = videoFilterGraph.getFrame();
-        if (!filtered)
+            videoFilterGraph.addFrame(frame);
             continue;
+        }
 
         if (!videoEncoder) {
             videoEncoder = frame.createEncoder({
@@ -175,49 +185,13 @@ async function main() {
                 flags: AVCodecFlags.AV_CODEC_FLAG_LOW_DELAY,
             });
 
-            writeStream = writeContext.newStream({
-                codecContext: videoEncoder,
-            });
-
-            bsf.copyParameters(writeContext, writeStream);
-
-            console.log(createSdp([writeContext, audioWriteContext]));
-        }
-
-        // this is necessary to prevent on demand keyframes
-        // and use the gop size specified above.
-        if (seenKeyFrame)
-            frame.pictType = 2;
-        else
-            seenKeyFrame ||= frame.pictType === 1;
-
-        // manually send 4 second idr
-        // if (Date.now() - lastIdr > 4000) {
-        //     lastIdr = Date.now();
-        //     frame.pictType = 1;
-        // }
-
-        const sent = await videoEncoder.sendFrame(frame);
-        if (!sent) {
-            console.error('sendFrame failed, frame will be dropped?');
+            const sent = await videoEncoder.sendFrame(frame);
+            if (!sent)
+                console.error('sendFrame failed, frame will be dropped?');
             continue;
         }
 
-        using transcodePacket = await videoEncoder.receivePacket();
-        if (!transcodePacket) {
-            console.error('receivePacket needs more frames');
-            continue;
-        }
-
-        bsf.sendPacket(transcodePacket);
-        while (true) {
-            using filtered = bsf.receivePacket();
-            if (!filtered)
-                break;
-
-            writeContext.writeFrame(writeStream!, filtered);
-            framesEncoded++;
-        }
+        console.warn('video frame received after encoder was created, this should not happen!');
     }
 
     await new Promise(r => setTimeout(r, 1000));

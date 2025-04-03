@@ -13,7 +13,8 @@ class ReadFrameWorker : public Napi::AsyncWorker {
 public:
     ReadFrameWorker(napi_env env, napi_deferred deferred, AVFormatContextObject *formatContextObject, 
                     const std::map<int, AVCodecContextObject*>& decoders,
-                    const std::map<int, AVFilterGraphObject*>& filters);
+                    const std::map<int, AVFilterGraphObject*>& filters,
+                    const std::map<int, AVCodecContextObject*>& encoders);
     void Execute() override;
     void OnOK() override;
     void OnError(const Napi::Error &e) override;
@@ -23,7 +24,9 @@ private:
     AVFormatContextObject *formatContextObject;
     std::map<int, AVCodecContextObject*> decoders;
     std::map<int, AVFilterGraphObject*> filters;
+    std::map<int, AVCodecContextObject*> encoders;
     AVPacket *packetResult;
+    int packetInputStreamIndex;
     AVFrame *frameResult;
     int frameStreamIndex; // Track which stream the frame came from
 };
