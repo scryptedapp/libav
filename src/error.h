@@ -14,6 +14,6 @@ extern "C"
 }
 
 #include <thread>
-#include <v8.h>
+
 
 std::string AVErrorString(int errnum);

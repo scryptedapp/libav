@@ -14,7 +14,7 @@ extern "C"
 }
 
 #include <thread>
-#include <v8.h>
+
 
 class AVCodecContextObject : public Napi::ObjectWrap<AVCodecContextObject>
 {
