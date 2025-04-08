@@ -1,7 +1,6 @@
 import { AVCodecContext, AVCodecFlags, AVFilter, AVFrame, AVPacket, createAVBitstreamFilter, createAVFilter, createAVFormatContext, createSdp, setAVLogLevel } from '../src';
 
 async function main() {
-    let seenKeyFrame = false;
     setAVLogLevel('trace');
 
     let videoFilterGraph: AVFilter | undefined;
@@ -14,18 +13,24 @@ async function main() {
 
     await using writeContext = createAVFormatContext();
 
-    const encoderFps = 10;
+    const encoderFps = 25;
 
     writeContext.create('rtp', rtp => {
-        console.log('video', rtp.length);
+        // console.log('video', rtp.length);
     });
-    let videoWriteStream: number | undefined;
+    // writeContext.newStream({
+    //     formatContext: readContext,
+    //     streamIndex: video.index,
+    // });
 
     await using audioWriteContext = createAVFormatContext();
     audioWriteContext.create('rtp', (a) => {
         // console.log('audio', a.length);
     });
-    let audioWriteStream: number | undefined;
+    // audioWriteContext.newStream({
+    //      formatContext: readContext,
+    //      streamIndex: audio.index,
+    // })
 
     const hwaccel = process.platform === 'darwin' ? 'videotoolbox' : 'cuda';
     const videoEncoderCodec = process.platform === 'darwin' ? 'h264_videotoolbox' : 'h264_nvenc';
@@ -43,12 +48,14 @@ async function main() {
                 decoder: videoDecoder,
                 filter: videoFilterGraph,
                 encoder: videoEncoder,
+                writeFormatContext: writeContext,
             },
             {
                 streamIndex: audio.index,
                 decoder: audioDecoder,
                 filter: audioFilterGraph,
                 encoder: audioEncoder,
+                writeFormatContext: audioWriteContext,
             }
         ]);
         if (!frameOrPacket)
@@ -56,22 +63,10 @@ async function main() {
 
         if (frameOrPacket.type === 'packet') {
             if (frameOrPacket.inputStreamIndex === audio.index) {
-                if (audioWriteStream === undefined) {
-                    audioWriteStream = audioWriteContext.newStream({
-                        codecContext: audioEncoder,
-                    })
-                }
-                audioWriteContext.writeFrame(audioWriteStream, frameOrPacket);
             }
             else if (frameOrPacket.inputStreamIndex === video.index) {
                 framesEncoded++;
-                if (videoWriteStream === undefined) {
-                    videoWriteStream = writeContext.newStream({
-                        codecContext: videoEncoder,
-                    });
-                    console.log(createSdp([writeContext, audioWriteContext]));
-                }
-                writeContext.writeFrame(videoWriteStream, frameOrPacket);
+                console.log('framesEncoded', framesEncoded);
             }
             else {
                 console.error('Unknown stream index in packet', frameOrPacket.inputStreamIndex);
@@ -106,6 +101,10 @@ async function main() {
                         application: 'lowdelay',
                     },
                 });
+
+                audioWriteContext.newStream({
+                    codecContext: audioEncoder,
+                })
 
                 if (!await audioEncoder.sendFrame(audioFrame))
                     console.error('sendFrame failed, frame will be dropped?');
@@ -150,6 +149,11 @@ async function main() {
                 },
                 flags: AVCodecFlags.AV_CODEC_FLAG_LOW_DELAY,
             });
+
+            writeContext.newStream({
+                codecContext: videoEncoder,
+            });
+            console.log(createSdp([writeContext, audioWriteContext]));
 
             const sent = await videoEncoder.sendFrame(frame);
             if (!sent)

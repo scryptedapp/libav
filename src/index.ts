@@ -213,9 +213,10 @@ export interface AVFormatContext {
     readFrame(): Promise<AVPacket>;
     receiveFrame(pipelines: {
         streamIndex: number;
-        decoder: AVCodecContext;
+        decoder?: AVCodecContext;
         filter?: AVFilter;
         encoder?: AVCodecContext;
+        writeFormatContext?: AVFormatContext;
     }[]): Promise<(AVFrame & { streamIndex: number; type: 'frame'; }) | (AVPacket & { type: 'packet'; inputStreamIndex?: number; }) | null | undefined>;
     create(format: string, callback: (buffer: Buffer) => void): void;
     newStream(options: {

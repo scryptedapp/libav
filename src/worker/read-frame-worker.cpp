@@ -7,9 +7,11 @@
 ReadFrameWorker::ReadFrameWorker(napi_env env, napi_deferred deferred, AVFormatContextObject *formatContextObject,
                                  const std::map<int, AVCodecContextObject *> &decoders,
                                  const std::map<int, AVFilterGraphObject *> &filters,
-                                 const std::map<int, AVCodecContextObject *> &encoders)
+                                 const std::map<int, AVCodecContextObject *> &encoders,
+                                 const std::map<int, AVFormatContextObject *> &writeFormatContexts)
     : Napi::AsyncWorker(env), deferred(deferred), formatContextObject(formatContextObject),
-      decoders(decoders), filters(filters), encoders(encoders), packetResult(nullptr), frameResult(nullptr)
+      decoders(decoders), filters(filters), encoders(encoders), writeFormatContexts(writeFormatContexts),
+      packetResult(nullptr), frameResult(nullptr)
 {
 }
 
@@ -48,6 +50,19 @@ void ReadFrameWorker::Execute()
             if (!ret)
             {
                 // Got an encoded packet
+                auto it = writeFormatContexts.find(pair.first);
+                if (it != writeFormatContexts.end())
+                {
+                    AVFormatContextObject *writeContext = it->second;
+                    packet.get()->stream_index = 0;
+                    ret = av_write_frame(writeContext->fmt_ctx_, packet.get());
+                    if (ret < 0)
+                    {
+                        SetError(AVErrorString(ret));
+                        return;
+                    }
+                }
+
                 packetResult = packet.release();
                 packetInputStreamIndex = pair.first;
                 return;
@@ -167,6 +182,20 @@ void ReadFrameWorker::Execute()
         auto it = decoders.find(packet.get()->stream_index);
         if (it == decoders.end())
         {
+            auto it = writeFormatContexts.find(packet.get()->stream_index);
+            if (it != writeFormatContexts.end())
+            {
+                AVFormatContextObject *writeContext = it->second;
+                packetInputStreamIndex = packet.get()->stream_index;
+                packet.get()->stream_index = 0;
+                ret = av_write_frame(writeContext->fmt_ctx_, packet.get());
+                if (ret < 0)
+                {
+                    SetError(AVErrorString(ret));
+                    return;
+                }
+            }
+
             // No decoder for this stream, return the packet as-is
             packetResult = packet.release();
             return;

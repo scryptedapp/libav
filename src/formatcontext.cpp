@@ -180,7 +180,8 @@ Napi::Value AVFormatContextObject::ReadFrame(const Napi::CallbackInfo &info)
     std::map<int, AVCodecContextObject *> decoders;
     std::map<int, AVCodecContextObject *> encoders;
     std::map<int, AVFilterGraphObject *> filters;
-    ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, this, decoders, filters, encoders);
+    std::map<int, AVFormatContextObject *> writeFormatContexts; // New map for write contexts
+    ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, this, decoders, filters, encoders, writeFormatContexts);
     worker->Queue();
 
     // Return the promise to JavaScript
@@ -190,7 +191,6 @@ Napi::Value AVFormatContextObject::ReadFrame(const Napi::CallbackInfo &info)
 Napi::Value AVFormatContextObject::ReceiveFrame(const Napi::CallbackInfo &info)
 {
     Napi::Env env = info.Env();
-    // Create a new promise and get its deferred handle
     napi_deferred deferred;
     napi_value promise;
     napi_create_promise(env, &deferred, &promise);
@@ -205,6 +205,8 @@ Napi::Value AVFormatContextObject::ReceiveFrame(const Napi::CallbackInfo &info)
     std::map<int, AVCodecContextObject *> decoders;
     std::map<int, AVCodecContextObject *> encoders;
     std::map<int, AVFilterGraphObject *> filters;
+    std::map<int, AVFormatContextObject *> writeFormatContexts; // New map for write contexts
+
     for (uint32_t i = 0; i < decodersArray.Length(); i++)
     {
         Napi::Value item = decodersArray[i];
@@ -215,19 +217,21 @@ Napi::Value AVFormatContextObject::ReceiveFrame(const Napi::CallbackInfo &info)
         }
 
         Napi::Object pipeline = item.As<Napi::Object>();
-        if (!pipeline.Has("streamIndex") || !pipeline.Has("decoder"))
+        if (!pipeline.Has("streamIndex"))
         {
-            Napi::TypeError::New(env, "Pipeline objects must have streamIndex and decoder").ThrowAsJavaScriptException();
+            Napi::TypeError::New(env, "Pipeline objects must have streamIndex").ThrowAsJavaScriptException();
             return env.Undefined();
         }
 
         int streamIndex = pipeline.Get("streamIndex").As<Napi::Number>().Int32Value();
-        AVCodecContextObject *codecContextObject = Napi::ObjectWrap<AVCodecContextObject>::Unwrap(
-            pipeline.Get("decoder").As<Napi::Object>());
 
-        decoders[streamIndex] = codecContextObject;
+        if (pipeline.Has("decoder")) {
+            AVCodecContextObject *codecContextObject = Napi::ObjectWrap<AVCodecContextObject>::Unwrap(
+                pipeline.Get("decoder").As<Napi::Object>());
+    
+            decoders[streamIndex] = codecContextObject;
+        }
 
-        // Check for optional filter
         if (pipeline.Has("filter"))
         {
             auto filter = pipeline.Get("filter");
@@ -239,7 +243,6 @@ Napi::Value AVFormatContextObject::ReceiveFrame(const Napi::CallbackInfo &info)
             }
         }
 
-        // Check for optional encoder
         if (pipeline.Has("encoder"))
         {
             auto encoder = pipeline.Get("encoder");
@@ -250,13 +253,22 @@ Napi::Value AVFormatContextObject::ReceiveFrame(const Napi::CallbackInfo &info)
                 encoders[streamIndex] = encoderObject;
             }
         }
+
+        if (pipeline.Has("writeFormatContext"))
+        {
+            auto writeContext = pipeline.Get("writeFormatContext");
+            if (writeContext.IsObject())
+            {
+                AVFormatContextObject *writeContextObject = Napi::ObjectWrap<AVFormatContextObject>::Unwrap(
+                    writeContext.As<Napi::Object>());
+                writeFormatContexts[streamIndex] = writeContextObject;
+            }
+        }
     }
 
-    // Create and queue the AsyncWorker, passing the deferred handle
-    ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, this, decoders, filters, encoders);
+    ReadFrameWorker *worker = new ReadFrameWorker(env, deferred, this, decoders, filters, encoders, writeFormatContexts);
     worker->Queue();
 
-    // Return the promise to JavaScript
     return Napi::Value(env, promise);
 }
 
