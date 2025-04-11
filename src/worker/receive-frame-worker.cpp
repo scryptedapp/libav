@@ -1,6 +1,7 @@
 #include "receive-frame-worker.h"
 #include "../error.h"
 #include "../frame.h"
+#include "../av-pointer.h"
 
 ReceiveFrameWorker::ReceiveFrameWorker(napi_env env, napi_deferred deferred, AVCodecContextObject *codecContext)
     : Napi::AsyncWorker(env), result(nullptr), deferred(deferred), codecContext(codecContext)
@@ -10,20 +11,18 @@ ReceiveFrameWorker::ReceiveFrameWorker(napi_env env, napi_deferred deferred, AVC
 void ReceiveFrameWorker::Execute() {
     result = nullptr;
 
-    AVFrame *frame = av_frame_alloc();
-    if (!frame) {
+    FreePointer<AVFrame, av_frame_free> frame(av_frame_alloc());
+    if (!frame.get()) {
         SetError("Failed to allocate frame");
         return;
     }
 
     //  EAGAIN will be returned if packets need to be sent to decoder.
-    int ret = avcodec_receive_frame(codecContext->codecContext, frame);
+    int ret = avcodec_receive_frame(codecContext->codecContext, frame.get());
     if (!ret) {
-        result = frame;
+        result = frame.release();
         return;
     }
-
-    av_frame_free(&frame);
     if (ret != AVERROR(EAGAIN)) {
         SetError(AVErrorString(ret));
     }
