@@ -16,21 +16,13 @@ async function main() {
     const encoderFps = 25;
 
     writeContext.create('rtp', rtp => {
-        // console.log('video', rtp.length);
+        console.log('video', rtp.length);
     });
-    // writeContext.newStream({
-    //     formatContext: readContext,
-    //     streamIndex: video.index,
-    // });
 
     await using audioWriteContext = createAVFormatContext();
     audioWriteContext.create('rtp', (a) => {
         // console.log('audio', a.length);
     });
-    // audioWriteContext.newStream({
-    //      formatContext: readContext,
-    //      streamIndex: audio.index,
-    // })
 
     const hwaccel = process.platform === 'darwin' ? 'videotoolbox' : 'cuda';
     const videoEncoderCodec = process.platform === 'darwin' ? 'h264_videotoolbox' : 'h264_nvenc';
@@ -47,15 +39,15 @@ async function main() {
                 streamIndex: video.index,
                 decoder: videoDecoder,
                 filter: videoFilterGraph,
-                encoder: videoEncoder,
-                writeFormatContext: writeContext,
+                encoder: videoFilterGraph ? videoEncoder : undefined,
+                writeFormatContext: videoEncoder ? writeContext : undefined,
             },
             {
                 streamIndex: audio.index,
                 decoder: audioDecoder,
                 filter: audioFilterGraph,
-                encoder: audioEncoder,
-                writeFormatContext: audioWriteContext,
+                encoder: audioFilterGraph ? audioEncoder : undefined,
+                writeFormatContext: audioEncoder ? audioWriteContext : undefined,
             }
         ]);
         if (!frameOrPacket)

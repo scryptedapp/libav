@@ -64,7 +64,8 @@ void ReadFrameWorker::Execute()
                     // writing a muxer doesn't have a result so keep
                     // going until something is available or demuxer needs
                     // more data.
-                    continue;
+                    // nevermind, its possible to loop infinitely.
+                    return;
                 }
 
                 packetResult = packet.release();
