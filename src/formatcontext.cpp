@@ -22,7 +22,6 @@ extern "C"
 
 #include <thread>
 
-
 #include "formatcontext.h"
 #include "filter.h"
 #include "codeccontext.h"
@@ -201,15 +200,15 @@ Napi::Value AVFormatContextObject::ReceiveFrame(const Napi::CallbackInfo &info)
         return env.Undefined();
     }
 
-    Napi::Array decodersArray = info[0].As<Napi::Array>();
+    Napi::Array pipelinesArray = info[0].As<Napi::Array>();
     std::map<int, AVCodecContextObject *> decoders;
     std::map<int, AVCodecContextObject *> encoders;
     std::map<int, AVFilterGraphObject *> filters;
     std::map<int, AVFormatContextObject *> writeFormatContexts; // New map for write contexts
 
-    for (uint32_t i = 0; i < decodersArray.Length(); i++)
+    for (uint32_t i = 0; i < pipelinesArray.Length(); i++)
     {
-        Napi::Value item = decodersArray[i];
+        Napi::Value item = pipelinesArray[i];
         if (!item.IsObject())
         {
             Napi::TypeError::New(env, "Each decoder must be an object").ThrowAsJavaScriptException();
@@ -225,10 +224,11 @@ Napi::Value AVFormatContextObject::ReceiveFrame(const Napi::CallbackInfo &info)
 
         int streamIndex = pipeline.Get("streamIndex").As<Napi::Number>().Int32Value();
 
-        if (pipeline.Has("decoder")) {
+        if (pipeline.Has("decoder"))
+        {
             AVCodecContextObject *codecContextObject = Napi::ObjectWrap<AVCodecContextObject>::Unwrap(
                 pipeline.Get("decoder").As<Napi::Object>());
-    
+
             decoders[streamIndex] = codecContextObject;
         }
 

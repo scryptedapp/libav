@@ -61,6 +61,10 @@ void ReadFrameWorker::Execute()
                         SetError(AVErrorString(ret));
                         return;
                     }
+                    // writing a muxer doesn't have a result so keep
+                    // going until something is available or demuxer needs
+                    // more data.
+                    continue;
                 }
 
                 packetResult = packet.release();
@@ -77,8 +81,8 @@ void ReadFrameWorker::Execute()
         // Try to receive filtered frames and feed to encoders
         for (const auto &pair : filters)
         {
-            AVFilterGraphObject *filter = pair.second;
-            AVFilterContext *buffersink_ctx = filter->buffersink_ctxs[0];
+            auto filter = pair.second;
+            auto buffersink_ctx = filter->buffersink_ctxs[0];
 
             FreePointer<AVFrame, av_frame_free> filtered_frame(av_frame_alloc());
             ret = av_buffersink_get_frame(buffersink_ctx, filtered_frame.get());
@@ -106,18 +110,15 @@ void ReadFrameWorker::Execute()
             }
             else if (ret != AVERROR(EAGAIN))
             {
-                if (ret != AVERROR_EOF)
-                {
-                    SetError(AVErrorString(ret));
-                    return;
-                }
+                SetError(AVErrorString(ret));
+                return;
             }
         }
 
         // Try to receive frames from each decoder context
         for (const auto &pair : decoders)
         {
-            AVCodecContext *codecContext = pair.second->codecContext;
+            auto codecContext = pair.second->codecContext;
             if (!codecContext)
                 continue;
 
@@ -185,7 +186,7 @@ void ReadFrameWorker::Execute()
             auto it = writeFormatContexts.find(packet.get()->stream_index);
             if (it != writeFormatContexts.end())
             {
-                AVFormatContextObject *writeContext = it->second;
+                auto writeContext = it->second;
                 packetInputStreamIndex = packet.get()->stream_index;
                 packet.get()->stream_index = 0;
                 ret = av_write_frame(writeContext->fmt_ctx_, packet.get());
