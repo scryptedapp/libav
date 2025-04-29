@@ -2,7 +2,7 @@
   "name": "@scrypted/libav",
   "version": "1.0.199",
   "dependencies": {
-    "detect-libc": "^2.0.3",
+    "detect-libc": "^2.0.4",
     "follow-redirects": "^1.15.9",
     "node-addon-api": "^8.3.1",
     "tar": "^7.4.3"
@@ -16,7 +16,7 @@
   "scripts": {
     "prebuildify-host": "prebuild --strip --include-regex \"\\.node$|ffmpeg$|\\.exe$|\\.dll$|\\.pdb$\"",
     "prebuildify-node": "prebuild --strip -t 20.0.0 -t 22.0.0 --include-regex \"\\.node$|ffmpeg$|\\.exe$|\\.dll$|\\.pdb$\"",
-    "prebuildify-electron": "prebuild --strip -r electron -t 31.0.0 -t 33.0.0 --include-regex \"\\.node$|ffmpeg$|\\.exe$|\\.dll$|\\.pdb$\"",
+    "prebuildify-electron": "prebuild --strip -r electron -t 33.0.0 -t 36.0.0 --include-regex \"\\.node$|ffmpeg$|\\.exe$|\\.dll$|\\.pdb$\"",
     "prebuildify-arm64": "npm run prebuildify-electron -- --arch arm64 && npm run prebuildify-node -- --arch arm64",
     "prebuildify-x64": "npm run prebuildify-electron -- --arch x64 && npm run prebuildify-node -- --arch x64",
     "prebuildify": "npm run prebuildify-arm64 && npm run prebuildify-x64",
@@ -39,13 +39,15 @@
   },
   "devDependencies": {
     "@types/follow-redirects": "^1.14.4",
-    "@types/node": "^22.13.10",
+    "@types/node": "^22.15.3",
     "cross-env": "^7.0.3",
-    "node-abi": "^4.2.0",
-    "node-gyp": "^11.1.0",
+    "node-gyp": "^11.2.0",
     "prebuild": "^13.0.1",
-    "prebuild-install": "npm:@scrypted/prebuild-install@^7.1.9",
+    "prebuild-install": "npm:@scrypted/prebuild-install@^7.1.10",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.3"
+  },
+  "overrides": {
+    "node-abi": "^4.4.0"
   }
 }
