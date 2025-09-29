@@ -13,7 +13,7 @@ export PKG_CONFIG_PATH=$PWD/../_vplinstall/lib/pkgconfig:$PKG_CONFIG_PATH
 
 cd ../opus
 export OPUS_INSTALL_DIR=$PWD/../_opusinstall
-cmake -B _build -DCMAKE_INSTALL_PREFIX=$OPUS_INSTALL_DIR -DBUILD_SHARED_LIBS=OFF
+cmake -B _build -DCMAKE_INSTALL_PREFIX=$OPUS_INSTALL_DIR -DBUILD_SHARED_LIBS=OFF -DOPUS_STATIC_RUNTIME=ON
 cmake --build _build --config Release
 cmake --install _build --config Release
 export PKG_CONFIG_PATH=$PWD/../_opusinstall/lib/pkgconfig:$PKG_CONFIG_PATH
@@ -45,5 +45,5 @@ export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$PWD/../src/pkgconfig
 # this version is the last that has HLSL and OGLCompiler which are still required by ffmpeg for now
 # https://sdk.lunarg.com/sdk/download/1.3.268.0/windows/VulkanSDK-1.3.268.0-Installer.exe
 
-./configure --enable-libopenh264 --enable-encoder=libopenh264 --enable-libopus --enable-encoder=libopus --enable-decoder=libopus --enable-libvpl --enable-libglslang --enable-cuda-llvm --enable-nvdec --toolchain=msvc && make -j32
+./configure --disable-filter=gfxcapture --enable-libopenh264 --enable-encoder=libopenh264 --enable-libopus --enable-encoder=libopus --enable-decoder=libopus --enable-libvpl --enable-libglslang --enable-cuda-llvm --enable-nvdec --toolchain=msvc && make -j32
 exit $?
