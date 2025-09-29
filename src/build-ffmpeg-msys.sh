@@ -13,7 +13,7 @@ export PKG_CONFIG_PATH=$PWD/../_vplinstall/lib/pkgconfig:$PKG_CONFIG_PATH
 
 cd ../opus
 export OPUS_INSTALL_DIR=$PWD/../_opusinstall
-cmake -B _build -DCMAKE_INSTALL_PREFIX=$OPUS_INSTALL_DIR -DBUILD_SHARED_LIBS=OFF
+cmake -B _build -DCMAKE_INSTALL_PREFIX=$OPUS_INSTALL_DIR -DBUILD_SHARED_LIBS=OFF -DOPUS_STATIC_RUNTIME=ON
 cmake --build _build --config Release
 cmake --install _build --config Release
 export PKG_CONFIG_PATH=$PWD/../_opusinstall/lib/pkgconfig:$PKG_CONFIG_PATH

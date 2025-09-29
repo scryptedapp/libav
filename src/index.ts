@@ -201,7 +201,7 @@ export interface AVTimeBase {
     readonly timeBaseDen: number,
 }
 
-export interface AVFormatContext {
+export interface AVFormatContext extends AsyncDisposable {
     readonly metadata: any;
     readonly streams: AVStream[];
 

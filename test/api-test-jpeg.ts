@@ -2,8 +2,8 @@ import { createAVFilter, createAVFormatContext, setAVLogLevel } from '../src';
 
 async function main() {
     setAVLogLevel('verbose');
-    using ctx = createAVFormatContext();
-    ctx.open("rtsp://scrypted-nvr:50757/68c1f365ed3e15b4");
+    await using ctx = createAVFormatContext();
+    await ctx.open("rtsp://scrypted-nvr:38999/cd527b59da41950b");
     const video = ctx.streams.find(s => s.type === 'video')!;
     using decoder = ctx.createDecoder(video.index, 'videotoolbox');
 
