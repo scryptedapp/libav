@@ -106,6 +106,8 @@
                             "strmiids.lib",
                             "secur32.lib",
                             "bcrypt.lib",
+                            "ncrypt.lib",
+                            "crypt32.lib"
                         ],
                     },
                 ],
