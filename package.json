@@ -16,7 +16,7 @@
   "scripts": {
     "prebuildify-host": "prebuild --strip --include-regex \"\\.node$|ffmpeg$|\\.exe$|\\.dll$\"",
     "prebuildify-node": "prebuild --strip -t 22.0.0 -t 24.0.0 --include-regex \"\\.node$|ffmpeg$|\\.exe$|\\.dll$\"",
-    "prebuildify-electron": "prebuild --strip -r electron -t 36.0.0 -t 38.0.0 --include-regex \"\\.node$|ffmpeg$|\\.exe$|\\.dll$\"",
+    "prebuildify-electron": "prebuild --strip -r electron -t 33.0.0 -t 36.0.0 -t 38.0.0 --include-regex \"\\.node$|ffmpeg$|\\.exe$|\\.dll$\"",
     "prebuildify-arm64": "npm run prebuildify-electron -- --arch arm64 && npm run prebuildify-node -- --arch arm64",
     "prebuildify-x64": "npm run prebuildify-electron -- --arch x64 && npm run prebuildify-node -- --arch x64",
     "prebuildify": "npm run prebuildify-arm64 && npm run prebuildify-x64",
