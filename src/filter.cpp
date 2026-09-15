@@ -90,6 +90,7 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
     }
 
     AVBufferRef *hw_device_ctx = NULL;
+    bool hw_device_ctx_owned = false;
     Napi::Value hardwareDeviceFrame = options.Get("hardwareDeviceFrame");
     if (hardwareDeviceFrame.IsObject())
     {
@@ -126,6 +127,7 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
             Napi::Error::New(env, "Failed to create hardware device context").ThrowAsJavaScriptException();
             return;
         }
+        hw_device_ctx_owned = true;
     }
 
     Napi::Value framesValue = options.Get("frames");
@@ -265,7 +267,7 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
                 Napi::Error::New(env, "Failed to allocate buffer source parameters").ThrowAsJavaScriptException();
                 goto end;
             }
-            src_params->hw_frames_ctx = av_buffer_ref(frame_->hw_frames_ctx);
+            src_params->hw_frames_ctx = frame_->hw_frames_ctx;
 
             ret = av_buffersrc_parameters_set(buffersrc_ctx, src_params);
             av_freep(&src_params);
@@ -369,6 +371,8 @@ AVFilterGraphObject::AVFilterGraphObject(const Napi::CallbackInfo &info)
 
     avfilter_inout_free(&inputs);
     avfilter_inout_free(&outputs);
+    if (hw_device_ctx_owned)
+        av_buffer_unref(&hw_device_ctx);
     filterGraph = filter_graph;
     return;
 
@@ -376,6 +380,8 @@ end:
     avfilter_graph_free(&filter_graph);
     avfilter_inout_free(&inputs);
     avfilter_inout_free(&outputs);
+    if (hw_device_ctx_owned)
+        av_buffer_unref(&hw_device_ctx);
 }
 
 AVFilterGraphObject::~AVFilterGraphObject()
