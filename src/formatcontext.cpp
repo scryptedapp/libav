@@ -421,6 +421,12 @@ Napi::Value AVFormatContextObject::CreateDecoder(const Napi::CallbackInfo &info)
     }
 
     codecContextObject->codecContext = avcodec_alloc_context3(codec);
+    if (!codecContextObject->codecContext)
+    {
+        av_buffer_unref(&hw_device_ctx);
+        Napi::Error::New(env, "Failed to allocate codec context").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
     codecContextObject->codecContext->time_base = stream->time_base;
     codecContextObject->codecContext->opaque = codecContextObject;
     if (hw_device_ctx)
@@ -550,14 +556,6 @@ Napi::Value AVFormatContextObject::Create(const Napi::CallbackInfo &info)
         fmt_ctx_->packet_size = MAX_RTP_PACKET_SIZE;
         RTPMuxContext *rtp_ctx = (RTPMuxContext *)fmt_ctx_->priv_data;
         rtp_ctx->max_payload_size = MAX_RTP_PACKET_SIZE - 12;
-        rtp_ctx->buf = (uint8_t *)av_malloc(MAX_RTP_PACKET_SIZE);
-        if (!rtp_ctx->buf)
-        {
-            avformat_free_context(fmt_ctx_);
-            fmt_ctx_ = nullptr;
-            Napi::Error::New(env, "Failed to allocate RTP buffer").ThrowAsJavaScriptException();
-            return env.Undefined();
-        }
     }
 
     // Set up a custom AVIOContext to capture the RTP output
@@ -738,6 +736,15 @@ Napi::Value AVFormatContextObject::NewStream(const Napi::CallbackInfo &info)
     int ret;
     if ((ret = avformat_write_header(fmt_ctx_, NULL)) < 0)
     {
+        AVIOContext *pb = fmt_ctx_->pb;
+        if (pb) {
+            fmt_ctx_->pb = nullptr;
+            av_freep(&pb->buffer);
+            avio_context_free(&pb);
+        }
+        if (callbackRef) {
+            callbackRef.Release();
+        }
         avformat_free_context(fmt_ctx_);
         fmt_ctx_ = nullptr;
         Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();

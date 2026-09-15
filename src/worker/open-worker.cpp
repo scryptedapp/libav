@@ -10,13 +10,11 @@ OpenWorker::OpenWorker(napi_env env, napi_deferred deferred, AVFormatContextObje
 void OpenWorker::Execute()
 {
     int ret = avformat_open_input(&formatContextObject->fmt_ctx_, filename.c_str(), NULL, &options);
+    av_dict_free(&options);
     if (ret < 0)
     {
         SetError(AVErrorString(ret));
         return;
-    }
-    if (options) {
-        av_dict_free(&options);
     }
     formatContextObject->is_input = true;
 }

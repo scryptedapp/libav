@@ -156,6 +156,7 @@ Napi::Value AVBitstreamFilterObject::SetOption(const Napi::CallbackInfo &info)
     }
 
     int ret = av_opt_set_dict2(bsfContext, &optionsDict, AV_OPT_SEARCH_CHILDREN);
+    av_dict_free(&optionsDict);
     if (ret < 0)
     {
         Napi::Error::New(env, AVErrorString(ret)).ThrowAsJavaScriptException();
