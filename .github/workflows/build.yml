@@ -35,11 +35,6 @@ jobs:
       with:
         submodules: true
 
-    # x86_64 needs yasm
-    - name: Set up Homebrew
-      if: ${{ matrix.os == 'macos-13' }}
-      uses: Homebrew/actions/setup-homebrew@master
-
     # see Dockerfile for base image dependencies.
     - name: Install Linux dependencies
       if: ${{ matrix.os == 'self-hosted-x86_64' || matrix.os == 'self-hosted-arm64' }}
