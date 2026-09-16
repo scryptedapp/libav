@@ -37,7 +37,7 @@ jobs:
 
     # x86_64 needs yasm
     - name: Set up Homebrew
-      if: ${{ matrix.os == 'macos-13' }}
+      if: ${{ matrix.os == 'macos-15-intel' }}
       uses: Homebrew/actions/setup-homebrew@2026.09.13.1
 
     # see Dockerfile for base image dependencies.
@@ -46,7 +46,7 @@ jobs:
       run: apt -y update && apt -y install libva-dev libdrm-dev yasm nasm cmake ocl-icd-opencl-dev
 
     - name: Install macOS dependencies
-      if: ${{ matrix.os == 'macos-13' }}
+      if: ${{ matrix.os == 'macos-15-intel' }}
       run: brew install nasm cmake
 
     - name: Set up Python
@@ -56,7 +56,7 @@ jobs:
         python-version: '3.10'
       # this action does not have 3.10 available for linux arm64 (or any version at time of checking).
       # https://raw.githubusercontent.com/actions/python-versions/main/versions-manifest.json
-      if: ${{ matrix.os == 'macos-latest' || matrix.os == 'macos-13' }}
+      if: ${{ matrix.os == 'macos-latest' || matrix.os == 'macos-15-intel' }}
 
     - name: Use Node.js 22.x
       uses: actions/setup-node@v4
