@@ -23,7 +23,7 @@ jobs:
         os: [
           self-hosted-x86_64,
           macos-latest,
-          macos-13,
+          macos-15-intel,
           self-hosted-arm64,
           self-hosted-windows-x86_64,
         ]
