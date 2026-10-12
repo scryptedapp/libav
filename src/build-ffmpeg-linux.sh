@@ -62,4 +62,16 @@ then
 fi
 
 make -j32
-exit $?
+if [ "$?" != "0" ]
+then
+  exit 1
+fi
+
+if ldd ffmpeg | grep -qiE "glslang|SPIRV|shaderc"
+then
+  echo "ERROR: ffmpeg dynamically links the shader compiler; binaries will not be portable."
+  ldd ffmpeg | grep -iE "glslang|SPIRV|shaderc"
+  exit 1
+fi
+
+exit 0

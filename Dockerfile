@@ -20,4 +20,7 @@ RUN wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list http://packages.lu
 RUN lsb_release -a
 RUN apt -y update
 RUN apt -y install vulkan-sdk
+# lunarg glslang 15.3+ added shared libs (libglslang.so.15 etc); remove them so
+# ffmpeg's --enable-libglslang check links the static archives into the binaries.
+RUN find /usr/lib \( -name "libglslang*.so*" -o -name "libSPIRV.so*" -o -name "libSPVRemapper.so*" -o -name "libSPIRV-Tools*.so*" \) -delete
 RUN apt -y install clang
